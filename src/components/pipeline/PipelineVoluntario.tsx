@@ -59,7 +59,7 @@ function getEffective(fase: FasePipeline, subetapa: string | null): string | nul
 
 // Aplica filtro de subetapa à query Supabase
 function applySubetapaFilter(
-  q: ReturnType<typeof supabase.from>, fase: FasePipeline, sub: string | null,
+  q: any, fase: FasePipeline, sub: string | null,
 ) {
   if (!sub) return q
   if (fase === 'CONTATO_INICIAL') return (q as any).eq('subetapa_contato', sub)
