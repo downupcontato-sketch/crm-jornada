@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat vite.config.*)",
+      "Read(//usr/**)",
+      "Bash(gh auth:*)",
+      "Bash(git config:*)",
+      "Bash(ls ~/.ssh/*.pub)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

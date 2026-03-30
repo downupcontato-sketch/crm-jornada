@@ -1,0 +1,75 @@
+import { NavLink } from 'react-router-dom'
+import { LayoutDashboard, Users, GitMerge, UserPlus, Settings, LogOut, Menu, X, Upload, ListFilter } from 'lucide-react'
+import { useState } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
+import { cn } from '@/lib/utils'
+
+const navItems = [
+  { to: '/dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard', roles: ['admin', 'lider'] },
+  { to: '/pipeline', icon: <GitMerge size={20} />, label: 'Pipeline', roles: ['admin', 'lider', 'coordenador'] },
+  { to: '/meus-contatos', icon: <Users size={20} />, label: 'Meus Contatos', roles: ['voluntario'] },
+  { to: '/cadastro', icon: <UserPlus size={20} />, label: 'Novo Cadastro', roles: ['admin', 'lider', 'coordenador', 'voluntario', 'linha_de_frente'] },
+  { to: '/equipe', icon: <Users size={20} />, label: 'Minha Equipe', roles: ['coordenador', 'admin', 'lider'] },
+  { to: '/gestao/leads', icon: <ListFilter size={20} />, label: 'Gestão de Leads', roles: ['admin', 'lider', 'coordenador'] },
+  { to: '/importacao', icon: <Upload size={20} />, label: 'Importar', roles: ['admin', 'lider', 'coordenador'] },
+  { to: '/usuarios', icon: <Settings size={20} />, label: 'Usuários', roles: ['admin'] },
+]
+
+export function Sidebar() {
+  const { profile, signOut, nivel } = useAuth()
+  const [open, setOpen] = useState(false)
+
+  const visible = navItems.filter(i => nivel && i.roles.includes(nivel))
+
+  const content = (
+    <div className="flex flex-col h-full">
+      <div className="px-6 py-6 border-b border-border">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-menta-light to-menta-dark flex items-center justify-center flex-shrink-0">
+            <span className="text-petroleo font-bold text-sm">Z</span>
+          </div>
+          <div>
+            <p className="font-semibold text-sm text-offwhite">CRM Jornada</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Zion Church</p>
+          </div>
+        </div>
+      </div>
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        {visible.map(item => (
+          <NavLink key={item.to} to={item.to} onClick={() => setOpen(false)}
+            className={({ isActive }) => cn('flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
+              isActive ? 'bg-menta-light/15 text-menta-light' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+            )}>
+            {item.icon}{item.label}
+          </NavLink>
+        ))}
+      </nav>
+      <div className="px-3 py-4 border-t border-border">
+        <div className="flex items-center gap-3 px-3 py-2 mb-1">
+          <div className="w-8 h-8 rounded-full bg-menta-dark flex items-center justify-center flex-shrink-0">
+            <span className="text-xs font-semibold text-menta-light">{profile?.nome.charAt(0).toUpperCase()}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-offwhite truncate">{profile?.nome}</p>
+            <p className="text-[11px] text-muted-foreground truncate">{profile?.email}</p>
+          </div>
+        </div>
+        <button onClick={signOut} className="flex items-center gap-2 w-full px-3 py-2 text-sm text-muted-foreground hover:text-red-400 hover:bg-red-400/5 rounded-lg transition-all">
+          <LogOut size={16} />Sair
+        </button>
+      </div>
+    </div>
+  )
+
+  return (
+    <>
+      <button className="fixed top-4 left-4 z-50 lg:hidden bg-card border border-border rounded-lg p-2" onClick={() => setOpen(!open)}>
+        {open ? <X size={20} /> : <Menu size={20} />}
+      </button>
+      {open && <div className="fixed inset-0 z-40 bg-black/60 lg:hidden" onClick={() => setOpen(false)} />}
+      <aside className={cn('fixed left-0 top-0 h-full w-64 bg-card border-r border-border z-40 transition-transform duration-300 lg:translate-x-0', open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0')}>
+        {content}
+      </aside>
+    </>
+  )
+}
