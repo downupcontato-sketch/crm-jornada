@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 
 const navItems = [
   { to: '/dashboard', icon: <LayoutDashboard size={20} />, label: 'Dashboard', roles: ['admin', 'lider'] },
+  { to: '/dashboard/coordenador', icon: <LayoutDashboard size={20} />, label: 'Dashboard', roles: ['coordenador'] },
   { to: '/pipeline', icon: <GitMerge size={20} />, label: 'Pipeline', roles: ['admin', 'lider', 'coordenador'] },
   { to: '/meus-contatos', icon: <Users size={20} />, label: 'Meus Contatos', roles: ['voluntario'] },
   { to: '/cadastro', icon: <UserPlus size={20} />, label: 'Novo Cadastro', roles: ['admin', 'lider', 'coordenador', 'voluntario', 'linha_de_frente'] },

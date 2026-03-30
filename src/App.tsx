@@ -15,6 +15,8 @@ import Equipe from '@/pages/Equipe'
 import Usuarios from '@/pages/Usuarios'
 import Importacao from '@/pages/Importacao'
 import GestaoLeads from '@/pages/GestaoLeads'
+import Culto from '@/pages/Culto'
+import DashboardCoordenador from '@/pages/DashboardCoordenador'
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30000, retry: 1 } } })
 
@@ -37,6 +39,8 @@ export default function App() {
             <Route path="/usuarios" element={<ProtectedRoute allowedRoles={['admin','coordenador']}><Usuarios /></ProtectedRoute>} />
             <Route path="/importacao" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador']}><Importacao /></ProtectedRoute>} />
             <Route path="/gestao/leads" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador']}><GestaoLeads /></ProtectedRoute>} />
+            <Route path="/culto" element={<ProtectedRoute allowedRoles={['linha_de_frente','admin']}><Culto /></ProtectedRoute>} />
+            <Route path="/dashboard/coordenador" element={<ProtectedRoute allowedRoles={['coordenador','admin']}><DashboardCoordenador /></ProtectedRoute>} />
             <Route path="/acesso-negado" element={<div className="min-h-screen bg-petroleo flex items-center justify-center text-center px-4"><div><h1 className="text-2xl font-semibold text-offwhite mb-2">Acesso Negado</h1><p className="text-muted-foreground">Você não tem permissão para acessar esta página.</p></div></div>} />
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>

@@ -10,13 +10,22 @@ import { toast } from 'sonner'
 const schema = z.object({ email: z.string().email(), password: z.string().min(6) })
 type F = z.infer<typeof schema>
 
+function getRedirectPath(nivel: string | null, status: string | undefined): string {
+  if (status === 'pendente') return '/aguardando-aprovacao'
+  if (nivel === 'admin' || nivel === 'lider') return '/dashboard'
+  if (nivel === 'coordenador') return '/pipeline'
+  if (nivel === 'voluntario') return '/meus-contatos'
+  if (nivel === 'linha_de_frente') return '/culto'
+  return '/dashboard'
+}
+
 export default function Login() {
-  const { user, signIn } = useAuth()
+  const { user, signIn, nivel, profile } = useAuth()
   const [show, setShow] = useState(false)
   const [loading, setLoading] = useState(false)
   const { register, handleSubmit, formState: { errors } } = useForm<F>({ resolver: zodResolver(schema) })
 
-  if (user) return <Navigate to="/dashboard" replace />
+  if (user) return <Navigate to={getRedirectPath(nivel, profile?.status)} replace />
 
   async function onSubmit(d: F) {
     setLoading(true)
