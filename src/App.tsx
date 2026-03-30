@@ -4,6 +4,8 @@ import { Toaster } from 'sonner'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute'
 import Login from '@/pages/Login'
+import SolicitarAcesso from '@/pages/SolicitarAcesso'
+import AguardandoAprovacao from '@/pages/AguardandoAprovacao'
 import Dashboard from '@/pages/Dashboard'
 import Pipeline from '@/pages/Pipeline'
 import MeusContatos from '@/pages/MeusContatos'
@@ -24,13 +26,15 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/solicitar-acesso" element={<SolicitarAcesso />} />
+            <Route path="/aguardando-aprovacao" element={<AguardandoAprovacao />} />
             <Route path="/cadastro" element={<ProtectedRoute><Cadastro /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['admin','lider']}><Dashboard /></ProtectedRoute>} />
             <Route path="/pipeline" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador','voluntario','linha_de_frente']}><Pipeline /></ProtectedRoute>} />
             <Route path="/meus-contatos" element={<ProtectedRoute allowedRoles={['voluntario']}><MeusContatos /></ProtectedRoute>} />
             <Route path="/contato/:id" element={<ProtectedRoute><ContatoDetail /></ProtectedRoute>} />
             <Route path="/equipe" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador']}><Equipe /></ProtectedRoute>} />
-            <Route path="/usuarios" element={<ProtectedRoute allowedRoles={['admin']}><Usuarios /></ProtectedRoute>} />
+            <Route path="/usuarios" element={<ProtectedRoute allowedRoles={['admin','coordenador']}><Usuarios /></ProtectedRoute>} />
             <Route path="/importacao" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador']}><Importacao /></ProtectedRoute>} />
             <Route path="/gestao/leads" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador']}><GestaoLeads /></ProtectedRoute>} />
             <Route path="/acesso-negado" element={<div className="min-h-screen bg-petroleo flex items-center justify-center text-center px-4"><div><h1 className="text-2xl font-semibold text-offwhite mb-2">Acesso Negado</h1><p className="text-muted-foreground">Você não tem permissão para acessar esta página.</p></div></div>} />

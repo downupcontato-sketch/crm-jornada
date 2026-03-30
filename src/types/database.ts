@@ -39,6 +39,12 @@ export interface Profile {
   nivel: UserNivel
   grupo: ContactGrupo | null
   ativo: boolean
+  status?: 'pendente' | 'ativo' | 'rejeitado'
+  aprovado_por?: string | null
+  aprovado_em?: string | null
+  rejeitado_por?: string | null
+  rejeitado_em?: string | null
+  nota_rejeicao?: string | null
   max_contatos_ativos: number
   coordenador_id: string | null
   ultima_atribuicao: string | null

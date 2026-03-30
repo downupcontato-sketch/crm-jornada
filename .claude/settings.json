@@ -7,7 +7,14 @@
       "Bash(git config:*)",
       "Bash(ls ~/.ssh/*.pub)",
       "Bash(git init:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git remote:*)",
+      "Bash(git push:*)",
+      "Bash(source ~/.zprofile)",
+      "Bash(~/.nvm/versions/node/v20.20.0/bin/npx tsc:*)",
+      "Bash(~/.nvm/versions/node/v20.20.0/bin/node ~/.nvm/versions/node/v20.20.0/bin/npx tsc --noEmit -p /Users/alexandresamuel/Downloads/crm-jornada-zion/tsconfig.json)",
+      "Bash(npx --version)"
     ]
   }
 }

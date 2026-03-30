@@ -6,6 +6,7 @@ import type { Profile, UserNivel } from '@/types/database'
 interface AuthContextValue {
   user: User | null; session: Session | null; profile: Profile | null; loading: boolean; nivel: UserNivel | null
   isAdmin: boolean; isLider: boolean; isCoordenador: boolean; isVoluntario: boolean; isLinhaDeFrente: boolean
+  isPendente: boolean
   canSeeAllContacts: boolean; canManageUsers: boolean
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
@@ -48,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: nivel === 'admin', isLider: nivel === 'lider',
       isCoordenador: nivel === 'coordenador', isVoluntario: nivel === 'voluntario',
       isLinhaDeFrente: nivel === 'linha_de_frente',
+      isPendente: profile?.status === 'pendente',
       canSeeAllContacts: nivel === 'admin' || nivel === 'lider',
       canManageUsers: nivel === 'admin',
       signIn: async (email, password) => {

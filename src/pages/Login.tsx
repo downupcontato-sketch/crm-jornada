@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -56,7 +56,10 @@ export default function Login() {
             {loading ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
-        <p className="text-center text-xs text-muted-foreground mt-8">Sem acesso? Fale com o administrador.</p>
+        <p className="text-center text-xs text-muted-foreground mt-8">
+          Sem acesso?{' '}
+          <Link to="/solicitar-acesso" className="text-menta-light hover:underline">Solicitar acesso</Link>
+        </p>
       </div>
     </div>
   )

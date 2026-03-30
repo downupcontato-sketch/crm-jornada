@@ -1,7 +1,9 @@
 import { NavLink } from 'react-router-dom'
 import { LayoutDashboard, Users, GitMerge, UserPlus, Settings, LogOut, Menu, X, Upload, ListFilter } from 'lucide-react'
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '@/contexts/AuthContext'
+import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 
 const navItems = [
@@ -12,12 +14,26 @@ const navItems = [
   { to: '/equipe', icon: <Users size={20} />, label: 'Minha Equipe', roles: ['coordenador', 'admin', 'lider'] },
   { to: '/gestao/leads', icon: <ListFilter size={20} />, label: 'Gestão de Leads', roles: ['admin', 'lider', 'coordenador'] },
   { to: '/importacao', icon: <Upload size={20} />, label: 'Importar', roles: ['admin', 'lider', 'coordenador'] },
-  { to: '/usuarios', icon: <Settings size={20} />, label: 'Usuários', roles: ['admin'] },
+  { to: '/usuarios', icon: <Settings size={20} />, label: 'Usuários', roles: ['admin', 'coordenador'] },
 ]
 
 export function Sidebar() {
-  const { profile, signOut, nivel } = useAuth()
+  const { profile, signOut, nivel, isAdmin, isCoordenador } = useAuth()
   const [open, setOpen] = useState(false)
+
+  const { data: pendentesCount } = useQuery({
+    queryKey: ['pendentes-count', profile?.id],
+    queryFn: async () => {
+      let query = supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('status', 'pendente')
+      if (isCoordenador && !isAdmin) {
+        query = query.eq('grupo', profile?.grupo ?? '').eq('nivel', 'linha_de_frente')
+      }
+      const { count } = await query
+      return count ?? 0
+    },
+    enabled: isAdmin || isCoordenador,
+    refetchInterval: 60000,
+  })
 
   const visible = navItems.filter(i => nivel && i.roles.includes(nivel))
 
@@ -40,7 +56,13 @@ export function Sidebar() {
             className={({ isActive }) => cn('flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
               isActive ? 'bg-menta-light/15 text-menta-light' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
             )}>
-            {item.icon}{item.label}
+            {item.icon}
+            <span className="flex-1">{item.label}</span>
+            {item.to === '/usuarios' && !!pendentesCount && (
+              <span className="bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                {pendentesCount}
+              </span>
+            )}
           </NavLink>
         ))}
       </nav>

@@ -1,128 +1,281 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { UserPlus, X, Pencil, Power } from 'lucide-react'
+import { CheckCircle, XCircle, Power, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Layout } from '@/components/layout/Layout'
 import { toast } from 'sonner'
 import { cn, getGrupoLabel, nivelLabel } from '@/lib/utils'
+import { useAuth } from '@/contexts/AuthContext'
 import type { Profile, UserNivel, ContactGrupo } from '@/types/database'
 
-const schema = z.object({
-  email: z.string().email().optional().or(z.literal('')),
-  nome: z.string().min(2),
-  nivel: z.enum(['admin','lider','coordenador','voluntario','linha_de_frente'] as const),
-  grupo: z.enum(['rise','flow','vox','ek','zion_geral'] as const).optional(),
-  telefone: z.string().optional(),
-  max_contatos_ativos: z.coerce.number().min(1).max(20).default(7),
-  password: z.string().min(6).optional(),
-})
-type F = z.infer<typeof schema>
+type Tab = 'pendentes' | 'ativos' | 'rejeitados'
 
-const nivelColors: Record<UserNivel,string> = {
-  admin:'text-red-400 bg-red-400/10 border-red-400/20', lider:'text-purple-400 bg-purple-400/10 border-purple-400/20',
-  coordenador:'text-yellow-400 bg-yellow-400/10 border-yellow-400/20', voluntario:'text-menta-light bg-menta-light/10 border-menta-light/20',
-  linha_de_frente:'text-blue-400 bg-blue-400/10 border-blue-400/20',
+const nivelColors: Record<UserNivel, string> = {
+  admin: 'text-red-400 bg-red-400/10 border-red-400/20',
+  lider: 'text-purple-400 bg-purple-400/10 border-purple-400/20',
+  coordenador: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20',
+  voluntario: 'text-menta-light bg-menta-light/10 border-menta-light/20',
+  linha_de_frente: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
 }
 
 export default function Usuarios() {
   const qc = useQueryClient()
-  const [showModal, setShowModal] = useState(false)
-  const [editUser, setEditUser] = useState<Profile|null>(null)
+  const { profile, isAdmin, isCoordenador } = useAuth()
+  const [tab, setTab] = useState<Tab>('pendentes')
+  const [rejectModal, setRejectModal] = useState<Profile | null>(null)
+  const [rejectNote, setRejectNote] = useState('')
+  const [pendingNiveis, setPendingNiveis] = useState<Record<string, UserNivel>>({})
 
   const { data: users, isLoading } = useQuery({
-    queryKey: ['users'],
-    queryFn: async () => { const { data } = await supabase.from('profiles').select('*').order('nivel').order('nome'); return data as Profile[] },
+    queryKey: ['users', tab, profile?.id],
+    queryFn: async () => {
+      let query = supabase.from('profiles').select('*')
+
+      if (tab === 'pendentes') {
+        query = query.eq('status', 'pendente')
+        if (isCoordenador && !isAdmin) {
+          query = query.eq('grupo', profile?.grupo ?? '').eq('nivel', 'linha_de_frente')
+        }
+      } else if (tab === 'ativos') {
+        query = query.eq('status', 'ativo').order('nivel').order('nome')
+        if (isCoordenador && !isAdmin) {
+          query = query.eq('grupo', profile?.grupo ?? '')
+        }
+      } else {
+        query = query.eq('status', 'rejeitado').order('rejeitado_em', { ascending: false })
+        if (isCoordenador && !isAdmin) {
+          query = query.eq('grupo', profile?.grupo ?? '')
+        }
+      }
+
+      const { data, error } = await query
+      if (error) throw error
+      return data as Profile[]
+    },
   })
 
-  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<F>({
-    resolver: zodResolver(schema), defaultValues: { max_contatos_ativos:7, nivel:'voluntario' }
-  })
+  async function handleApprove(u: Profile) {
+    const novoNivel = pendingNiveis[u.id] ?? u.nivel
+    const { error } = await supabase.from('profiles').update({
+      status: 'ativo',
+      ativo: true,
+      nivel: novoNivel,
+      aprovado_por: profile?.id,
+      aprovado_em: new Date().toISOString(),
+    }).eq('id', u.id)
+    if (error) { toast.error('Erro ao aprovar usuário.'); return }
+    toast.success(`${u.nome} aprovado!`)
+    qc.invalidateQueries({ queryKey: ['users'] })
+    qc.invalidateQueries({ queryKey: ['pendentes-count'] })
+  }
 
-  function openCreate() { setEditUser(null); reset({max_contatos_ativos:7,nivel:'voluntario'}); setShowModal(true) }
-  function openEdit(u: Profile) { setEditUser(u); reset({nome:u.nome,email:u.email,nivel:u.nivel,grupo:u.grupo??undefined,telefone:u.telefone??undefined,max_contatos_ativos:u.max_contatos_ativos}); setShowModal(true) }
+  async function handleReject() {
+    if (!rejectModal) return
+    const { error } = await supabase.from('profiles').update({
+      status: 'rejeitado',
+      ativo: false,
+      rejeitado_por: profile?.id,
+      rejeitado_em: new Date().toISOString(),
+      nota_rejeicao: rejectNote || null,
+    }).eq('id', rejectModal.id)
+    if (error) { toast.error('Erro ao rejeitar usuário.'); return }
+    toast.success(`${rejectModal.nome} rejeitado.`)
+    setRejectModal(null)
+    setRejectNote('')
+    qc.invalidateQueries({ queryKey: ['users'] })
+    qc.invalidateQueries({ queryKey: ['pendentes-count'] })
+  }
 
   async function toggleActive(u: Profile) {
-    const { error } = await supabase.from('profiles').update({ativo:!u.ativo}).eq('id',u.id)
-    if (error) toast.error('Erro.'); else { toast.success(u.ativo?'Desativado.':'Ativado.'); qc.invalidateQueries({queryKey:['users']}) }
+    const { error } = await supabase.from('profiles').update({ ativo: !u.ativo }).eq('id', u.id)
+    if (error) toast.error('Erro.')
+    else { toast.success(u.ativo ? 'Desativado.' : 'Ativado.'); qc.invalidateQueries({ queryKey: ['users'] }) }
   }
 
-  async function onSubmit(data: F) {
-    try {
-      if (editUser) {
-        await supabase.from('profiles').update({nome:data.nome,nivel:data.nivel as UserNivel,grupo:(data.grupo as ContactGrupo)??null,telefone:data.telefone??null,max_contatos_ativos:data.max_contatos_ativos}).eq('id',editUser.id)
-        toast.success('Atualizado!')
-      } else {
-        const { data: authData, error } = await supabase.auth.signUp({ email:data.email!, password:data.password??'Jornada@2026', options:{data:{nome:data.nome}} })
-        if (error) throw error
-        if (authData.user) {
-          await supabase.from('profiles').update({nome:data.nome,nivel:data.nivel as UserNivel,grupo:(data.grupo as ContactGrupo)??null,telefone:data.telefone??null,max_contatos_ativos:data.max_contatos_ativos}).eq('id',authData.user.id)
-        }
-        toast.success('Criado! Email de confirmação enviado.')
-      }
-      setShowModal(false); qc.invalidateQueries({queryKey:['users']})
-    } catch (err:any) { toast.error(err?.message??'Erro.') }
-  }
+  const tabs: { key: Tab; label: string }[] = [
+    { key: 'pendentes', label: 'Pendentes' },
+    { key: 'ativos', label: 'Ativos' },
+    { key: 'rejeitados', label: 'Rejeitados' },
+  ]
 
   return (
-    <Layout title="Gerenciar Usuários">
-      <div className="flex justify-end mb-4">
-        <button onClick={openCreate} className="zion-btn-primary flex items-center gap-2 text-sm"><UserPlus size={16}/>Novo Usuário</button>
+    <Layout title="Usuários">
+      {/* Tabs */}
+      <div className="flex gap-1 mb-6 border-b border-border">
+        {tabs.map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={cn(
+              'px-4 py-2 text-sm font-medium transition-all border-b-2 -mb-px',
+              tab === t.key
+                ? 'border-menta-light text-menta-light'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
-      {isLoading ? <div className="flex items-center justify-center h-40"><div className="w-8 h-8 border-2 border-menta-light border-t-transparent rounded-full animate-spin"/></div>
-        : (
-          <div className="space-y-2">
-            {users?.map(u=>(
-              <div key={u.id} className={cn('zion-card flex items-center gap-3',!u.ativo&&'opacity-50')}>
-                <div className="w-9 h-9 rounded-full bg-menta-dark flex items-center justify-center flex-shrink-0"><span className="text-xs font-semibold text-menta-light">{u.nome.charAt(0).toUpperCase()}</span></div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-medium text-offwhite">{u.nome}</p>
-                    <span className={cn('text-xs px-2 py-0.5 rounded-full border',nivelColors[u.nivel])}>{nivelLabel(u.nivel)}</span>
-                    {!u.ativo&&<span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">Inativo</span>}
-                  </div>
-                  <p className="text-xs text-muted-foreground">{u.email}{u.grupo&&` · ${getGrupoLabel(u.grupo)}`}{u.nivel==='voluntario'&&` · Máx. ${u.max_contatos_ativos}`}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={()=>openEdit(u)} className="text-muted-foreground hover:text-menta-light p-1.5"><Pencil size={15}/></button>
-                  <button onClick={()=>toggleActive(u)} className={cn('p-1.5',u.ativo?'text-muted-foreground hover:text-red-400':'text-muted-foreground hover:text-emerald-400')}><Power size={15}/></button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
 
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-4 pb-4 sm:pb-0">
-          <div className="absolute inset-0 bg-black/70" onClick={()=>setShowModal(false)}/>
-          <div className="relative bg-card border border-border rounded-2xl w-full max-w-md p-5 animate-fade-in max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-offwhite">{editUser?'Editar':'Novo'} Usuário</h2>
-              <button onClick={()=>setShowModal(false)} className="text-muted-foreground hover:text-foreground"><X size={20}/></button>
-            </div>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div><label className="block text-sm font-medium text-foreground mb-1.5">Nome</label><input type="text" className="zion-input" {...register('nome')}/></div>
-              {!editUser && <>
-                <div><label className="block text-sm font-medium text-foreground mb-1.5">Email</label><input type="email" className="zion-input" {...register('email')}/></div>
-                <div><label className="block text-sm font-medium text-foreground mb-1.5">Senha <span className="text-muted-foreground text-xs">(padrão: Jornada@2026)</span></label><input type="password" placeholder="Jornada@2026" className="zion-input" {...register('password')}/></div>
-              </>}
-              <div><label className="block text-sm font-medium text-foreground mb-1.5">Nível</label>
-                <select className="zion-input" {...register('nivel')}>
-                  <option value="linha_de_frente">Linha de Frente</option><option value="voluntario">Voluntário</option>
-                  <option value="coordenador">Coordenador</option><option value="lider">Líder de Jornada</option><option value="admin">Admin Geral</option>
-                </select></div>
-              <div><label className="block text-sm font-medium text-foreground mb-1.5">Grupo</label>
-                <select className="zion-input" {...register('grupo')}>
-                  <option value="">Sem grupo específico</option><option value="rise">RISE</option><option value="flow">FLOW</option><option value="vox">VOX</option><option value="ek">EK</option><option value="zion_geral">Zion Geral</option>
-                </select></div>
-              {watch('nivel')==='voluntario'&&<div><label className="block text-sm font-medium text-foreground mb-1.5">Máx. Contatos</label><input type="number" min={1} max={20} className="zion-input" {...register('max_contatos_ativos')}/></div>}
-              <div className="flex gap-2 pt-2">
-                <button type="button" onClick={()=>setShowModal(false)} className="zion-btn-secondary flex-1 text-sm">Cancelar</button>
-                <button type="submit" className="zion-btn-primary flex-1 text-sm">{editUser?'Salvar':'Criar'}</button>
+      {isLoading ? (
+        <div className="flex items-center justify-center h-40">
+          <div className="w-8 h-8 border-2 border-menta-light border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : !users?.length ? (
+        <div className="text-center py-16 text-muted-foreground text-sm">
+          Nenhum usuário encontrado nesta categoria.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {/* PENDENTES */}
+          {tab === 'pendentes' && users.map(u => (
+            <div key={u.id} className="zion-card">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full bg-menta-dark flex items-center justify-center flex-shrink-0">
+                  <span className="text-sm font-semibold text-menta-light">{u.nome.charAt(0).toUpperCase()}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-offwhite">{u.nome}</p>
+                  <p className="text-xs text-muted-foreground">{u.email}</p>
+                  <div className="flex flex-wrap gap-2 mt-1.5">
+                    {u.grupo && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{getGrupoLabel(u.grupo as ContactGrupo)}</span>
+                    )}
+                    <span className={cn('text-xs px-2 py-0.5 rounded-full border', nivelColors[u.nivel])}>{nivelLabel(u.nivel)}</span>
+                    {u.created_at && (
+                      <span className="text-xs text-muted-foreground">
+                        Solicitado em {new Date(u.created_at).toLocaleDateString('pt-BR')}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Nível dropdown (admin only) */}
+                  {isAdmin && (
+                    <div className="mt-2">
+                      <label className="text-xs text-muted-foreground block mb-1">Nível ao aprovar:</label>
+                      <select
+                        className="zion-input text-xs py-1"
+                        value={pendingNiveis[u.id] ?? u.nivel}
+                        onChange={e => setPendingNiveis(prev => ({ ...prev, [u.id]: e.target.value as UserNivel }))}
+                      >
+                        <option value="linha_de_frente">Linha de Frente</option>
+                        <option value="voluntario">Voluntário</option>
+                        <option value="coordenador">Coordenador</option>
+                        <option value="lider">Líder de Jornada</option>
+                        <option value="admin">Admin Geral</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2 flex-shrink-0">
+                  <button
+                    onClick={() => handleApprove(u)}
+                    className="zion-btn-primary flex items-center gap-1.5 text-xs px-3 py-1.5"
+                  >
+                    <CheckCircle size={14} />Aprovar
+                  </button>
+                  <button
+                    onClick={() => { setRejectModal(u); setRejectNote('') }}
+                    className="zion-btn-secondary flex items-center gap-1.5 text-xs px-3 py-1.5 hover:text-red-400 hover:border-red-400/50"
+                  >
+                    <XCircle size={14} />Rejeitar
+                  </button>
+                </div>
               </div>
-            </form>
+            </div>
+          ))}
+
+          {/* ATIVOS */}
+          {tab === 'ativos' && users.map(u => (
+            <div key={u.id} className={cn('zion-card flex items-center gap-3', !u.ativo && 'opacity-50')}>
+              <div className="w-9 h-9 rounded-full bg-menta-dark flex items-center justify-center flex-shrink-0">
+                <span className="text-xs font-semibold text-menta-light">{u.nome.charAt(0).toUpperCase()}</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-sm font-medium text-offwhite">{u.nome}</p>
+                  <span className={cn('text-xs px-2 py-0.5 rounded-full border', nivelColors[u.nivel])}>{nivelLabel(u.nivel)}</span>
+                  {!u.ativo && <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">Inativo</span>}
+                </div>
+                <p className="text-xs text-muted-foreground">{u.email}{u.grupo && ` · ${getGrupoLabel(u.grupo as ContactGrupo)}`}</p>
+              </div>
+              <button
+                onClick={() => toggleActive(u)}
+                className={cn('p-1.5', u.ativo ? 'text-muted-foreground hover:text-red-400' : 'text-muted-foreground hover:text-emerald-400')}
+                title={u.ativo ? 'Desativar' : 'Ativar'}
+              >
+                <Power size={15} />
+              </button>
+            </div>
+          ))}
+
+          {/* REJEITADOS */}
+          {tab === 'rejeitados' && users.map(u => (
+            <div key={u.id} className="zion-card">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-full bg-red-400/10 flex items-center justify-center flex-shrink-0">
+                  <span className="text-xs font-semibold text-red-400">{u.nome.charAt(0).toUpperCase()}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-offwhite">{u.nome}</p>
+                  <p className="text-xs text-muted-foreground">{u.email}</p>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {u.grupo && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">{getGrupoLabel(u.grupo as ContactGrupo)}</span>
+                    )}
+                    <span className={cn('text-xs px-2 py-0.5 rounded-full border', nivelColors[u.nivel])}>{nivelLabel(u.nivel)}</span>
+                  </div>
+                  {u.nota_rejeicao && (
+                    <p className="text-xs text-red-400/80 mt-1.5 italic">Motivo: {u.nota_rejeicao}</p>
+                  )}
+                  {u.rejeitado_em && (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Rejeitado em {new Date(u.rejeitado_em).toLocaleDateString('pt-BR')}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Modal de Rejeição */}
+      {rejectModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-4 pb-4 sm:pb-0">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setRejectModal(null)} />
+          <div className="relative bg-card border border-border rounded-2xl w-full max-w-md p-5 animate-fade-in">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-offwhite">Rejeitar solicitação</h2>
+              <button onClick={() => setRejectModal(null)} className="text-muted-foreground hover:text-foreground">
+                <X size={20} />
+              </button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Tem certeza que deseja rejeitar <span className="text-offwhite font-medium">{rejectModal.nome}</span>?
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Motivo da rejeição <span className="text-muted-foreground text-xs">(opcional)</span>
+              </label>
+              <textarea
+                className="zion-input resize-none"
+                rows={3}
+                placeholder="Ex: perfil não se encaixa nos critérios atuais..."
+                value={rejectNote}
+                onChange={e => setRejectNote(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setRejectModal(null)} className="zion-btn-secondary flex-1 text-sm">Cancelar</button>
+              <button
+                onClick={handleReject}
+                className="flex-1 text-sm px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-all"
+              >
+                Confirmar rejeição
+              </button>
+            </div>
           </div>
         </div>
       )}
