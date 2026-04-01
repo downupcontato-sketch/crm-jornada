@@ -161,7 +161,6 @@ export default function FormularioPublico() {
                 <option value="">Selecione</option>
                 <option value="masculino">Masculino</option>
                 <option value="feminino">Feminino</option>
-                <option value="outro">Outro</option>
               </select>
             </div>
             <div>
