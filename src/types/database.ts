@@ -1,7 +1,7 @@
 export type UserNivel = 'admin' | 'lider' | 'coordenador' | 'voluntario' | 'linha_de_frente'
 export type ContactTipo = 'novo_nascimento' | 'reconciliacao' | 'visitante'
 export type ContactGrupo = 'rise' | 'flow' | 'vox' | 'ek' | 'zion_geral'
-export type ContactStatus = 'ativo' | 'sem_resposta' | 'encaminhado' | 'arquivado' | 'batizado' | 'reciclado'
+export type ContactStatus = 'ativo' | 'sem_resposta' | 'encaminhado' | 'arquivado' | 'batizado' | 'reciclado' | 'pendente_aprovacao'
 export type SlaStatus = 'ok' | 'atencao' | 'vencido'
 export type InteractionTipo = 'whatsapp' | 'ligacao' | 'presencial' | 'zoom'
 export type InteractionResultado = 'respondeu' | 'nao_atendeu' | 'sem_resposta' | 'avancou' | 'recusou'

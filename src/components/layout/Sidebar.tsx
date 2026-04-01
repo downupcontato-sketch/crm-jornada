@@ -36,6 +36,20 @@ export function Sidebar() {
     refetchInterval: 60000,
   })
 
+  const { data: novosCadastrosCount } = useQuery({
+    queryKey: ['novos-cadastros-count', profile?.id],
+    queryFn: async () => {
+      let query = supabase.from('contacts').select('id', { count: 'exact', head: true }).eq('status', 'pendente_aprovacao')
+      if (isCoordenador && !isAdmin && profile?.grupo) {
+        query = query.eq('grupo', profile.grupo)
+      }
+      const { count } = await query
+      return count ?? 0
+    },
+    enabled: isAdmin || isCoordenador || nivel === 'lider',
+    refetchInterval: 60000,
+  })
+
   const visible = navItems.filter(i => nivel && i.roles.includes(nivel))
 
   const content = (
@@ -62,6 +76,11 @@ export function Sidebar() {
             {item.to === '/usuarios' && !!pendentesCount && (
               <span className="bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
                 {pendentesCount}
+              </span>
+            )}
+            {item.to === '/gestao/leads' && !!novosCadastrosCount && (
+              <span className="bg-orange-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                {novosCadastrosCount}
               </span>
             )}
           </NavLink>

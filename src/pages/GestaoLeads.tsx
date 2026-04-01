@@ -1,12 +1,13 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Search, Pencil, Archive, X, Users, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, Pencil, Archive, X, Users, ChevronLeft, ChevronRight, CheckCircle, XCircle, ClipboardList } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { Layout } from '@/components/layout/Layout'
 import { DrawerEdicaoLead } from '@/components/gestao/DrawerEdicaoLead'
 import { ModalArquivar } from '@/components/gestao/ModalArquivar'
 import { cn, getGrupoLabel, getTipoLabel, formatRelativeTime } from '@/lib/utils'
+import { distribuirLead } from '@/lib/distribuicao'
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -18,12 +19,13 @@ const PER_PAGE = 25
 const GRUPOS: ContactGrupo[] = ['rise','flow','vox','ek','zion_geral']
 
 const STATUS_BADGE: Record<ContactStatus, { cls: string; label: string }> = {
-  ativo:        { cls: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20', label: 'Ativo' },
-  sem_resposta: { cls: 'bg-red-500/15 text-red-400 border-red-500/20',            label: 'Sem resposta' },
-  encaminhado:  { cls: 'bg-blue-500/15 text-blue-400 border-blue-500/20',         label: 'Encaminhado' },
-  arquivado:    { cls: 'bg-gray-500/15 text-gray-400 border-gray-500/20',         label: 'Arquivado' },
-  batizado:     { cls: 'bg-menta-light/15 text-menta-light border-menta-light/20',label: 'Batizado' },
-  reciclado:    { cls: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/20',   label: 'Reciclado' },
+  ativo:               { cls: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20',    label: 'Ativo' },
+  sem_resposta:        { cls: 'bg-red-500/15 text-red-400 border-red-500/20',                label: 'Sem resposta' },
+  encaminhado:         { cls: 'bg-blue-500/15 text-blue-400 border-blue-500/20',             label: 'Encaminhado' },
+  arquivado:           { cls: 'bg-gray-500/15 text-gray-400 border-gray-500/20',             label: 'Arquivado' },
+  batizado:            { cls: 'bg-menta-light/15 text-menta-light border-menta-light/20',    label: 'Batizado' },
+  reciclado:           { cls: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/20',       label: 'Reciclado' },
+  pendente_aprovacao:  { cls: 'bg-orange-500/15 text-orange-400 border-orange-500/20',       label: 'Pendente' },
 }
 
 const TIPO_BADGE: Record<ContactTipo, { cls: string; label: string }> = {
@@ -42,6 +44,7 @@ export default function GestaoLeads() {
   const { profile, isAdmin, isLider, canSeeAllContacts } = useAuth()
   const qc = useQueryClient()
 
+  const [tab, setTab] = useState<'leads' | 'novos'>('leads')
   const [filtros, setFiltros] = useState<Filtros>({ busca: '', grupo: '', status: '', tipo: '', page: 1 })
   const [buscaInput, setBuscaInput] = useState('')
   const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
@@ -161,9 +164,117 @@ export default function GestaoLeads() {
     enabled: !!profile,
   })
 
+  // ─── Novos Cadastros (pendente_aprovacao) ────────────────────────────────
+  const { data: novos = [], isLoading: loadingNovos } = useQuery({
+    queryKey: ['novos-cadastros', profile?.grupo, profile?.nivel],
+    queryFn: async () => {
+      let q = supabase.from('contacts').select('*').eq('status', 'pendente_aprovacao').order('created_at', { ascending: false })
+      if (profile?.nivel === 'coordenador' && profile.grupo) q = q.eq('grupo', profile.grupo)
+      const { data } = await q
+      return (data ?? []) as Contact[]
+    },
+    enabled: !!profile,
+  })
+
+  async function aprovarCadastro(contact: Contact) {
+    const { error } = await supabase.from('contacts').update({ status: 'ativo', etapa_atual: 3, captador_id: profile?.id ?? null }).eq('id', contact.id)
+    if (error) { toast.error('Erro ao aprovar.'); return }
+    try { await distribuirLead(contact.id) } catch {}
+    toast.success(`${contact.nome} aprovado e distribuído.`)
+    qc.invalidateQueries({ queryKey: ['novos-cadastros'] })
+    qc.invalidateQueries({ queryKey: ['gestao-leads'] })
+  }
+
+  async function rejeitarCadastro(contact: Contact) {
+    const { error } = await supabase.from('contacts').update({ status: 'arquivado' }).eq('id', contact.id)
+    if (error) { toast.error('Erro ao rejeitar.'); return }
+    toast.success(`${contact.nome} rejeitado.`)
+    qc.invalidateQueries({ queryKey: ['novos-cadastros'] })
+  }
+
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <Layout title="Gestão de Leads">
+
+      {/* Tabs */}
+      <div className="flex gap-2 mb-5">
+        <button onClick={() => setTab('leads')} className={cn('flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-all',
+          tab === 'leads' ? 'bg-menta-light/15 border-menta-light/40 text-menta-light' : 'border-border text-muted-foreground hover:text-foreground')}>
+          <Users size={15} /> Leads
+        </button>
+        <button onClick={() => setTab('novos')} className={cn('flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-all',
+          tab === 'novos' ? 'bg-orange-500/15 border-orange-500/40 text-orange-400' : 'border-border text-muted-foreground hover:text-foreground')}>
+          <ClipboardList size={15} /> Novos Cadastros
+          {novos.length > 0 && <span className="bg-orange-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">{novos.length}</span>}
+        </button>
+      </div>
+
+      {/* Aba: Novos Cadastros */}
+      {tab === 'novos' && (
+        <div>
+          {loadingNovos ? (
+            <div className="flex items-center justify-center h-40"><div className="w-8 h-8 border-2 border-menta-light border-t-transparent rounded-full animate-spin"/></div>
+          ) : novos.length === 0 ? (
+            <div className="zion-card text-center py-12 text-muted-foreground text-sm">Nenhum cadastro aguardando aprovação.</div>
+          ) : (
+            <div className="zion-card p-0 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Nome</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground hidden sm:table-cell">Telefone</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground hidden md:table-cell">Tipo</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground">Grupo</th>
+                      <th className="text-left px-4 py-3 text-xs font-medium text-muted-foreground hidden lg:table-cell">Data</th>
+                      <th className="px-4 py-3 text-xs font-medium text-muted-foreground text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {novos.map(c => (
+                      <tr key={c.id} className="border-b border-border/50 last:border-0 hover:bg-muted/10 transition-colors">
+                        <td className="px-4 py-3">
+                          <p className="text-sm font-medium text-offwhite truncate max-w-[160px]">{c.nome}</p>
+                          {c.email && <p className="text-[11px] text-muted-foreground truncate max-w-[160px]">{c.email}</p>}
+                        </td>
+                        <td className="px-4 py-3 hidden sm:table-cell">
+                          <span className="font-mono text-xs text-muted-foreground">{c.telefone}</span>
+                        </td>
+                        <td className="px-4 py-3 hidden md:table-cell">
+                          <span className={cn('text-[11px] px-2 py-0.5 rounded-full border font-medium', TIPO_BADGE[c.tipo].cls)}>
+                            {TIPO_BADGE[c.tipo].label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs text-muted-foreground">{getGrupoLabel(c.grupo)}</span>
+                        </td>
+                        <td className="px-4 py-3 hidden lg:table-cell">
+                          <span className="text-xs text-muted-foreground">{format(new Date(c.created_at),'dd/MM/yy HH:mm',{locale:ptBR})}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1.5 justify-end">
+                            <button onClick={() => aprovarCadastro(c)}
+                              className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/25 transition-all font-medium">
+                              <CheckCircle size={13}/> Aprovar
+                            </button>
+                            <button onClick={() => rejeitarCadastro(c)}
+                              className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all font-medium">
+                              <XCircle size={13}/> Rejeitar
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'novos' && <></>}
+      {tab !== 'leads' ? null : <>
 
       {/* Filtros */}
       <div className="flex flex-col sm:flex-row gap-2 mb-4">
@@ -369,6 +480,7 @@ export default function GestaoLeads() {
           }}
         />
       )}
+      </>}
     </Layout>
   )
 }

@@ -14,7 +14,8 @@
       "Bash(source ~/.zprofile)",
       "Bash(~/.nvm/versions/node/v20.20.0/bin/npx tsc:*)",
       "Bash(~/.nvm/versions/node/v20.20.0/bin/node ~/.nvm/versions/node/v20.20.0/bin/npx tsc --noEmit -p /Users/alexandresamuel/Downloads/crm-jornada-zion/tsconfig.json)",
-      "Bash(npx --version)"
+      "Bash(npx --version)",
+      "Bash(zip -r dist.zip dist/)"
     ]
   }
 }

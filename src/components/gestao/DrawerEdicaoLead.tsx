@@ -16,7 +16,7 @@ const schema = z.object({
   telefone: z.string().min(10).max(11).regex(/^\d+$/, 'Somente dígitos'),
   email: z.string().email().optional().or(z.literal('')),
   tipo: z.enum(['novo_nascimento', 'reconciliacao', 'visitante'] as const),
-  status: z.enum(['ativo', 'sem_resposta', 'encaminhado', 'arquivado', 'batizado', 'reciclado'] as const),
+  status: z.enum(['ativo', 'sem_resposta', 'encaminhado', 'arquivado', 'batizado', 'reciclado', 'pendente_aprovacao'] as const),
   grupo: z.enum(['rise', 'flow', 'vox', 'ek', 'zion_geral'] as const),
   voluntario_atribuido_id: z.string().uuid().nullable().optional(),
   observacoes: z.string().optional(),

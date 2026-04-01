@@ -17,6 +17,7 @@ import Importacao from '@/pages/Importacao'
 import GestaoLeads from '@/pages/GestaoLeads'
 import Culto from '@/pages/Culto'
 import DashboardCoordenador from '@/pages/DashboardCoordenador'
+import FormularioPublico from '@/pages/FormularioPublico'
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30000, retry: 1 } } })
 
@@ -29,6 +30,7 @@ export default function App() {
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
             <Route path="/solicitar-acesso" element={<SolicitarAcesso />} />
+            <Route path="/formulario" element={<FormularioPublico />} />
             <Route path="/aguardando-aprovacao" element={<AguardandoAprovacao />} />
             <Route path="/cadastro" element={<ProtectedRoute><Cadastro /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['admin','lider']}><Dashboard /></ProtectedRoute>} />
