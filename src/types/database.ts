@@ -76,6 +76,7 @@ export interface Contact {
   idade: number | null
   igreja_origem: string | null
   culto_captacao: string | null
+  local_culto: string | null
   captador_id: string | null
   numero_pulseira: string | null
   autorizacao_contato: boolean

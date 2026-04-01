@@ -287,7 +287,12 @@ export default function GestaoLeads() {
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-xs text-muted-foreground">{getGrupoLabel(c.grupo)}</span>
+                          <div>
+                            <span className="text-xs text-muted-foreground">{getGrupoLabel(c.grupo)}</span>
+                            {(c as any).local_culto && (
+                              <p className="text-[11px] text-muted-foreground/60 truncate max-w-[120px]">{(c as any).local_culto}</p>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 hidden lg:table-cell">
                           <span className="text-xs text-muted-foreground">{format(new Date(c.created_at),'dd/MM/yy HH:mm',{locale:ptBR})}</span>
@@ -526,12 +531,32 @@ export default function GestaoLeads() {
       {/* Modal de aprovação com seletor de voluntário */}
       {modalAprovacao && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-5">
+          <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
             <div>
               <h2 className="text-base font-semibold text-offwhite">Aprovar cadastro</h2>
               <p className="text-sm text-muted-foreground mt-0.5">
                 {modalAprovacao.contact.nome} · {TIPO_BADGE[modalAprovacao.contact.tipo].label}
               </p>
+            </div>
+
+            {/* Informações do contato (readonly) */}
+            <div className="bg-muted/20 rounded-xl p-3 space-y-2 border border-border">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Grupo (calculado pela idade)</span>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full bg-menta-light" />
+                  <span className="text-xs font-medium text-offwhite">{getGrupoLabel(modalAprovacao.contact.grupo)}</span>
+                  {modalAprovacao.contact.idade && (
+                    <span className="text-xs text-muted-foreground">· {modalAprovacao.contact.idade} anos</span>
+                  )}
+                </div>
+              </div>
+              {(modalAprovacao.contact as any).local_culto && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Local do culto</span>
+                  <span className="text-xs text-offwhite">{(modalAprovacao.contact as any).local_culto}</span>
+                </div>
+              )}
             </div>
 
             {/* Voluntário */}
