@@ -32,6 +32,26 @@ export function slaTextoCor(sla: 'ok' | 'warn' | 'over'): string {
   return { ok: 'text-emerald-400', warn: 'text-yellow-400', over: 'text-red-400' }[sla]
 }
 
+export function calcularHorasRestantesSLA(c: Pick<Contact, 'updated_at' | 'fase_pipeline'>): number {
+  const horas = (Date.now() - new Date(c.updated_at).getTime()) / 3_600_000
+  const limite = c.fase_pipeline === 'CONTATO_INICIAL' ? 48 : 120
+  return Math.max(0, Math.floor(limite - horas))
+}
+
+export function formatarSLALabel(c: Pick<Contact, 'updated_at' | 'fase_pipeline'>): string {
+  const sla = calcularSLAFase(c)
+  if (sla === 'over') {
+    const horas = Math.floor((Date.now() - new Date(c.updated_at).getTime()) / 3_600_000)
+    const limite = c.fase_pipeline === 'CONTATO_INICIAL' ? 48 : 120
+    const vencidoHa = horas - limite
+    if (vencidoHa < 24) return `vencido há ${vencidoHa}h`
+    return `vencido há ${Math.floor(vencidoHa / 24)}d`
+  }
+  const restantes = calcularHorasRestantesSLA(c)
+  if (restantes < 24) return `${restantes}h restantes`
+  return `${Math.floor(restantes / 24)}d restantes`
+}
+
 // ─── Labels ──────────────────────────────────────────────────────────────────
 
 export const FASE_LABELS: Record<FasePipeline, string> = {

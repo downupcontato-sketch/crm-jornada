@@ -1,6 +1,7 @@
 import { Phone } from 'lucide-react'
-import { cn, getTipoLabel, getTipoBadgeColor, formatRelativeTime } from '@/lib/utils'
-import { calcularSLAFase, slaBordaCor, slaTextoCor, SUBETAPA_LABELS } from '@/lib/pipeline'
+import { cn, getTipoLabel, getTipoBadgeColor } from '@/lib/utils'
+import { calcularSLAFase, slaBordaCor, slaTextoCor, formatarSLALabel } from '@/lib/pipeline'
+import { SUBETAPA_LABELS } from '@/lib/pipeline'
 import type { Contact } from '@/types/database'
 
 interface Props {
@@ -43,8 +44,8 @@ export function CardLeadLista({ contact, onClick }: Props) {
               {SUBETAPA_LABELS[sub] ?? sub}
             </span>
           )}
-          <span className={cn('text-[10px]', slaTextoCor(sla))}>
-            {formatRelativeTime(contact.updated_at)}
+          <span className={cn('text-[10px] font-medium', slaTextoCor(sla))}>
+            {formatarSLALabel(contact)}
           </span>
         </div>
       </div>

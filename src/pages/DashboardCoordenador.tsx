@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, Users } from 'lucide-react'
+import { AlertTriangle, Users, Phone } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { Layout } from '@/components/layout/Layout'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
+import { calcularSLAFase, formatarSLALabel } from '@/lib/pipeline'
+import type { Contact } from '@/types/database'
 
 export default function DashboardCoordenador() {
   const { profile } = useAuth()
@@ -17,11 +19,11 @@ export default function DashboardCoordenador() {
       if (!grupo) return []
       const { data, error } = await supabase
         .from('contacts')
-        .select('id,status,sla_status,voluntario_atribuido_id,fase_pipeline')
+        .select('id,nome,telefone,status,sla_status,voluntario_atribuido_id,fase_pipeline,updated_at')
         .eq('grupo', grupo)
         .eq('status', 'ativo')
       if (error) throw error
-      return data ?? []
+      return (data ?? []) as Pick<Contact, 'id'|'nome'|'telefone'|'status'|'sla_status'|'voluntario_atribuido_id'|'fase_pipeline'|'updated_at'>[]
     },
     enabled: !!grupo,
     refetchInterval: 60000,
@@ -66,19 +68,26 @@ export default function DashboardCoordenador() {
   const isLoading = loadingContacts || loadingVoluntarios
 
   const totalAtivos = contacts.length
-  const slaVencidos = contacts.filter(c => c.sla_status === 'vencido').length
-  const slaAtencao = contacts.filter(c => c.sla_status === 'atencao').length
+  const slaVencidos = contacts.filter(c => calcularSLAFase(c as any) === 'over').length
+  const slaAtencao = contacts.filter(c => calcularSLAFase(c as any) === 'warn').length
+
+  // Contatos urgentes para lista de alertas
+  const contatosUrgentes = contacts.filter(c => calcularSLAFase(c as any) === 'over')
 
   // Montar dados de voluntários com contagem de contatos atribuídos
   const voluntariosComDados = voluntarios.map(v => {
     const atribuidos = contacts.filter(c => c.voluntario_atribuido_id === v.id)
-    const temVencidos = atribuidos.some(c => c.sla_status === 'vencido')
+    const temVencidos = atribuidos.some(c => calcularSLAFase(c as any) === 'over')
     return {
       ...v,
       contatosAtivos: atribuidos.length,
       temVencidos,
+      urgentes: atribuidos.filter(c => calcularSLAFase(c as any) === 'over'),
     }
   })
+
+  // Alertas agrupados por voluntário
+  const alertasPorVol = voluntariosComDados.filter(v => v.urgentes.length > 0)
 
   if (isLoading) {
     return (
@@ -144,6 +153,42 @@ export default function DashboardCoordenador() {
           valueColor={slaAtencao > 0 ? 'text-yellow-400' : 'text-offwhite'}
         />
       </div>
+
+      {/* Alertas SLA detalhados por voluntário */}
+      {alertasPorVol.length > 0 && (
+        <div className="zion-card mb-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertTriangle size={16} className="text-red-400" />
+              <h2 className="text-sm font-semibold text-offwhite">Alertas de SLA</h2>
+            </div>
+            <span className="text-xs bg-red-500/15 text-red-400 font-semibold px-2.5 py-1 rounded-full border border-red-500/20">
+              {contatosUrgentes.length} vencido{contatosUrgentes.length > 1 ? 's' : ''}
+            </span>
+          </div>
+          {alertasPorVol.map(v => (
+            <div key={v.id} className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{v.nome}</p>
+              {v.urgentes.map(c => (
+                <div key={c.id} className="flex items-center justify-between bg-red-500/5 border border-red-500/15 rounded-lg px-3 py-2.5">
+                  <div>
+                    <p className="text-sm font-medium text-offwhite">{c.nome}</p>
+                    <p className="text-xs text-red-400 mt-0.5">{formatarSLALabel(c as any)}</p>
+                  </div>
+                  <a
+                    href={`https://wa.me/55${c.telefone.replace(/\D/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg hover:bg-emerald-500/25 transition-all font-medium flex-shrink-0"
+                  >
+                    <Phone size={12} /> WhatsApp
+                  </a>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Volunteers table */}
       <div className="zion-card">

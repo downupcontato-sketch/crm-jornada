@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Search } from 'lucide-react'
+import { Search, AlertTriangle, Phone } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { Layout } from '@/components/layout/Layout'
 import { ContactCard } from '@/components/contacts/ContactCard'
-import { BadgeSLA } from '@/components/contacts/BadgeSLA'
 import { cn } from '@/lib/utils'
+import { calcularSLAFase, formatarSLALabel } from '@/lib/pipeline'
 import type { Contact } from '@/types/database'
 
 type Filter = 'todos'|'ativos'|'sla_vencido'|'sem_resposta'
@@ -28,11 +28,11 @@ export default function MeusContatos() {
 
   const filtered = contacts?.filter(c=>{
     const ms = !search || c.nome.toLowerCase().includes(search.toLowerCase()) || c.telefone.includes(search)
-    const mf = filter==='ativos'?c.status==='ativo':filter==='sla_vencido'?c.sla_status==='vencido':filter==='sem_resposta'?c.status==='sem_resposta':true
+    const mf = filter==='ativos'?c.status==='ativo':filter==='sla_vencido'?calcularSLAFase(c)==='over':filter==='sem_resposta'?c.status==='sem_resposta':true
     return ms && mf
   })
 
-  const vencidos = contacts?.filter(c=>c.sla_status==='vencido').length??0
+  const vencidos = contacts?.filter(c => calcularSLAFase(c) === 'over') ?? []
   const ativos = contacts?.filter(c=>c.status==='ativo').length??0
   const max = profile?.max_contatos_ativos??7
 
@@ -49,10 +49,32 @@ export default function MeusContatos() {
         {ativos>=max && <p className="text-xs text-red-400 mt-1">Capacidade máxima atingida</p>}
       </div>
 
-      {vencidos>0 && (
-        <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-2.5 mb-4 text-sm text-red-400">
-          <BadgeSLA dataDistribuicao={null} dataPrimeiroContato={null} />
-          <span><strong>{vencidos}</strong> contato{vencidos>1?'s':''} com SLA vencido — contate agora!</span>
+      {vencidos.length > 0 && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+            <p className="text-sm font-medium text-red-400">
+              {vencidos.length} contato{vencidos.length > 1 ? 's' : ''} com SLA vencido — contate agora!
+            </p>
+          </div>
+          <div className="space-y-2">
+            {vencidos.map(c => (
+              <div key={c.id} className="flex items-center justify-between bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2.5">
+                <div>
+                  <p className="text-sm font-medium text-offwhite">{c.nome}</p>
+                  <p className="text-xs text-red-400 mt-0.5">{formatarSLALabel(c)}</p>
+                </div>
+                <a
+                  href={`https://wa.me/55${c.telefone.replace(/\D/g, '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-xs bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg hover:bg-emerald-500/25 transition-all font-medium"
+                >
+                  <Phone size={12} /> WhatsApp
+                </a>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

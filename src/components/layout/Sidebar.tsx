@@ -19,7 +19,7 @@ const navItems = [
 ]
 
 export function Sidebar() {
-  const { profile, signOut, nivel, isAdmin, isCoordenador } = useAuth()
+  const { profile, signOut, nivel, isAdmin, isCoordenador, isVoluntario } = useAuth()
   const [open, setOpen] = useState(false)
 
   const { data: pendentesCount } = useQuery({
@@ -34,6 +34,23 @@ export function Sidebar() {
     },
     enabled: isAdmin || isCoordenador,
     refetchInterval: 60000,
+  })
+
+  const { data: slaUrgentesCount } = useQuery({
+    queryKey: ['sla-urgentes-count', profile?.id, nivel],
+    queryFn: async () => {
+      let q = supabase.from('contacts').select('id,updated_at,fase_pipeline,voluntario_atribuido_id,grupo', { count: 'exact' })
+        .eq('status', 'ativo')
+        .in('fase_pipeline', ['CONTATO_INICIAL', 'QUALIFICACAO', 'AULAS', 'POS_AULA'])
+      if (nivel === 'voluntario') q = q.eq('voluntario_atribuido_id', profile?.id ?? '')
+      else if ((nivel === 'coordenador' || nivel === 'lider') && profile?.grupo) q = q.eq('grupo', profile.grupo)
+      const { data } = await q
+      if (!data) return 0
+      const { calcularSLAFase } = await import('@/lib/pipeline')
+      return data.filter(c => calcularSLAFase(c as any) === 'over').length
+    },
+    enabled: !!profile && (isAdmin || isCoordenador || nivel === 'lider' || isVoluntario),
+    refetchInterval: 5 * 60 * 1000,
   })
 
   const { data: novosCadastrosCount } = useQuery({
@@ -76,6 +93,11 @@ export function Sidebar() {
             {item.to === '/usuarios' && !!pendentesCount && (
               <span className="bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
                 {pendentesCount}
+              </span>
+            )}
+            {(item.to === '/pipeline' || item.to === '/meus-contatos') && !!slaUrgentesCount && (
+              <span className="bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                {slaUrgentesCount > 9 ? '9+' : slaUrgentesCount}
               </span>
             )}
             {item.to === '/gestao/leads' && !!novosCadastrosCount && (
