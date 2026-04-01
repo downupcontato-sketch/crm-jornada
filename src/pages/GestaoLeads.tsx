@@ -45,6 +45,7 @@ export default function GestaoLeads() {
   const qc = useQueryClient()
 
   const [tab, setTab] = useState<'leads' | 'novos'>('leads')
+  const [modalAprovacao, setModalAprovacao] = useState<{ contact: Contact; voluntarioId: string; fase: string } | null>(null)
   const [filtros, setFiltros] = useState<Filtros>({ busca: '', grupo: '', status: '', tipo: '', page: 1 })
   const [buscaInput, setBuscaInput] = useState('')
   const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
@@ -176,11 +177,51 @@ export default function GestaoLeads() {
     enabled: !!profile,
   })
 
-  async function aprovarCadastro(contact: Contact) {
-    const { error } = await supabase.from('contacts').update({ status: 'ativo', etapa_atual: 3, captador_id: profile?.id ?? null }).eq('id', contact.id)
+  // Voluntários para seletor de aprovação
+  const { data: voluntariosAprovacao = [] } = useQuery({
+    queryKey: ['voluntarios-aprovacao'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, nome, grupo, max_contatos_ativos')
+        .eq('nivel', 'voluntario')
+        .eq('status', 'ativo')
+        .order('nome')
+      if (!data) return []
+      // Buscar contagem de contatos ativos por voluntário
+      const { data: counts } = await supabase
+        .from('contacts')
+        .select('voluntario_atribuido_id')
+        .eq('status', 'ativo')
+        .in('voluntario_atribuido_id', data.map(v => v.id))
+      const countMap: Record<string, number> = {}
+      for (const c of counts ?? []) {
+        if (c.voluntario_atribuido_id) countMap[c.voluntario_atribuido_id] = (countMap[c.voluntario_atribuido_id] ?? 0) + 1
+      }
+      return data.map(v => ({ ...v, ativos: countMap[v.id] ?? 0 }))
+    },
+    enabled: !!profile,
+  })
+
+  async function confirmarAprovacao() {
+    if (!modalAprovacao) return
+    const { contact, voluntarioId, fase } = modalAprovacao
+    const { error } = await supabase.from('contacts').update({
+      status: 'ativo',
+      etapa_atual: 3,
+      captador_id: profile?.id ?? null,
+      voluntario_atribuido_id: voluntarioId || null,
+      fase_pipeline: fase as any,
+      subetapa_contato: fase === 'CONTATO_INICIAL' ? 'TENTATIVA_1' : null,
+    }).eq('id', contact.id)
     if (error) { toast.error('Erro ao aprovar.'); return }
-    try { await distribuirLead(contact.id) } catch {}
-    toast.success(`${contact.nome} aprovado e distribuído.`)
+    if (voluntarioId) {
+      await supabase.from('atribuicoes').insert({ contact_id: contact.id, voluntario_id: voluntarioId, tipo: 'MANUAL', criado_por: profile?.id ?? null })
+    } else {
+      try { await distribuirLead(contact.id) } catch {}
+    }
+    toast.success(`${contact.nome} aprovado.`)
+    setModalAprovacao(null)
     qc.invalidateQueries({ queryKey: ['novos-cadastros'] })
     qc.invalidateQueries({ queryKey: ['gestao-leads'] })
   }
@@ -253,7 +294,7 @@ export default function GestaoLeads() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1.5 justify-end">
-                            <button onClick={() => aprovarCadastro(c)}
+                            <button onClick={() => setModalAprovacao({ contact: c, voluntarioId: '', fase: 'CONTATO_INICIAL' })}
                               className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/25 transition-all font-medium">
                               <CheckCircle size={13}/> Aprovar
                             </button>
@@ -481,6 +522,66 @@ export default function GestaoLeads() {
         />
       )}
       </>}
+
+      {/* Modal de aprovação com seletor de voluntário */}
+      {modalAprovacao && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-5">
+            <div>
+              <h2 className="text-base font-semibold text-offwhite">Aprovar cadastro</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {modalAprovacao.contact.nome} · {TIPO_BADGE[modalAprovacao.contact.tipo].label}
+              </p>
+            </div>
+
+            {/* Voluntário */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Voluntário responsável</label>
+              <select
+                className="zion-input text-sm"
+                value={modalAprovacao.voluntarioId}
+                onChange={e => setModalAprovacao(m => m ? { ...m, voluntarioId: e.target.value } : null)}
+              >
+                <option value="">Distribuição automática</option>
+                {voluntariosAprovacao
+                  .filter(v => !modalAprovacao.contact.grupo || v.grupo === modalAprovacao.contact.grupo)
+                  .map(v => (
+                    <option key={v.id} value={v.id}>
+                      {v.nome} ({v.ativos}/{v.max_contatos_ativos ?? 7})
+                    </option>
+                  ))}
+              </select>
+              <p className="text-[11px] text-muted-foreground">Se não selecionar, será distribuído automaticamente.</p>
+            </div>
+
+            {/* Fase inicial */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Etapa inicial no pipeline</label>
+              <select
+                className="zion-input text-sm"
+                value={modalAprovacao.fase}
+                onChange={e => setModalAprovacao(m => m ? { ...m, fase: e.target.value } : null)}
+              >
+                <option value="CONTATO_INICIAL">Contato Inicial</option>
+                <option value="QUALIFICACAO">Qualificação</option>
+                <option value="AULAS">Aulas</option>
+                <option value="POS_AULA">Pós-Aula</option>
+              </select>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-1">
+              <button onClick={() => setModalAprovacao(null)}
+                className="text-sm px-4 py-2 border border-border rounded-xl text-muted-foreground hover:bg-muted/20 transition-colors">
+                Cancelar
+              </button>
+              <button onClick={confirmarAprovacao}
+                className="text-sm px-4 py-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl font-medium hover:bg-emerald-500/30 transition-colors">
+                Confirmar aprovação
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }
