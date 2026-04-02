@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx'
 import { supabase } from '@/lib/supabase'
-import type { ResultadoLinha, RelatorioImportacao } from '@/types/importacao'
+import type { ResultadoLinha, RelatorioImportacao, PreviewImportacao, ConfigImportacao } from '@/types/importacao'
 
 // ─── Mapeamentos ─────────────────────────────────────────────────────────────
 
@@ -373,6 +373,89 @@ export async function processarImportacaoExcel(buffer: ArrayBuffer): Promise<Rel
   }
   console.log(`=== FIM IMPORTAÇÃO === importados=${final.importados} erros=${final.erros} avisos=${final.avisos}`)
   return final
+}
+
+// ─── Preview sem inserir ──────────────────────────────────────────────────────
+
+export async function previewImportacaoExcel(buffer: ArrayBuffer): Promise<PreviewImportacao> {
+  const telefonesDB = await fetchTelefonesExistentes()
+  const telefonesArquivo = new Set<string>()
+
+  let workbook: XLSX.WorkBook
+  try {
+    workbook = XLSX.read(buffer, { type: 'array' })
+  } catch (e) {
+    return {
+      totalLinhas: 0, validas: 0, invalidas: 1, avisos: 0, abas: [],
+      resultados: [{ linha: 0, aba: 'Arquivo', status: 'ERRO_ABA_CORROMPIDA', mensagem: `Arquivo inválido: ${String(e)}` }],
+    }
+  }
+
+  const ABAS_IGNORAR = new Set(['ORIGEM', 'CONFIG', 'LEGENDA', 'INSTRUCOES', 'INSTRUÇÕES', 'SHEET1', 'PLANILHA1', 'INSTRUÇÃO'])
+  const abasProcessar = workbook.SheetNames.filter(n => !ABAS_IGNORAR.has(n.toUpperCase().trim()))
+
+  const todosResultados: ResultadoLinha[] = []
+  for (const aba of abasProcessar) {
+    const resultados = processarAba(workbook.Sheets[aba], aba, telefonesDB, telefonesArquivo)
+    todosResultados.push(...resultados)
+  }
+
+  return {
+    totalLinhas: todosResultados.length,
+    validas:     todosResultados.filter(r => r.status === 'SUCESSO').length,
+    invalidas:   todosResultados.filter(r => r.status !== 'SUCESSO' && r.status !== 'AVISO_DADO_INCOMPLETO').length,
+    avisos:      todosResultados.filter(r => r.status === 'AVISO_DADO_INCOMPLETO').length,
+    resultados:  todosResultados,
+    abas:        abasProcessar,
+  }
+}
+
+// ─── Confirmar inserção com config ────────────────────────────────────────────
+
+export async function confirmarImportacao(
+  preview: PreviewImportacao,
+  config: ConfigImportacao,
+): Promise<RelatorioImportacao> {
+  const iniciadoEm = new Date()
+
+  const linhasParaInserir = config.modoImport === 'validas_apenas'
+    ? preview.resultados.filter(r => r.status === 'SUCESSO' && r.dados)
+    : preview.resultados.filter(r => (r.status === 'SUCESSO' || r.status === 'AVISO_DADO_INCOMPLETO') && r.dados)
+
+  const resultados = [...preview.resultados]
+
+  for (const resultado of linhasParaInserir) {
+    if (!resultado.dados) continue
+    const { etapa_atual: _eta, ...dadosBase } = resultado.dados as Record<string, unknown>
+    const dados = {
+      ...dadosBase,
+      fase_pipeline: config.fasePipeline,
+      subetapa_contato: config.fasePipeline === 'CONTATO_INICIAL' ? 'TENTATIVA_1' : null,
+      status: 'ativo',
+      sla_status: 'ok',
+      grupo: dadosBase.grupo && dadosBase.grupo !== 'zion_geral'
+        ? dadosBase.grupo
+        : config.grupoDefault,
+    }
+
+    const { error } = await supabase.from('contacts').insert(dados as any)
+    if (error) {
+      const idx = resultados.indexOf(resultado)
+      if (idx >= 0) {
+        resultados[idx] = { ...resultado, status: 'ERRO_CAMPO_OBRIGATORIO', mensagem: `Erro ao salvar: ${error.message}` }
+      }
+    }
+  }
+
+  return {
+    totalLinhas: resultados.length,
+    importados:  resultados.filter(r => r.status === 'SUCESSO').length,
+    erros:       resultados.filter(r => r.status !== 'SUCESSO' && r.status !== 'AVISO_DADO_INCOMPLETO').length,
+    avisos:      resultados.filter(r => r.status === 'AVISO_DADO_INCOMPLETO').length,
+    resultados,
+    iniciadoEm,
+    finalizadoEm: new Date(),
+  }
 }
 
 // ─── Export CSV ───────────────────────────────────────────────────────────────

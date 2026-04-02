@@ -26,3 +26,18 @@ export interface RelatorioImportacao {
   iniciadoEm: Date
   finalizadoEm: Date
 }
+
+export interface PreviewImportacao {
+  totalLinhas: number
+  validas: number
+  invalidas: number
+  avisos: number
+  resultados: ResultadoLinha[]
+  abas: string[]
+}
+
+export interface ConfigImportacao {
+  fasePipeline: 'CONTATO_INICIAL' | 'QUALIFICACAO' | 'AULAS' | 'POS_AULA'
+  grupoDefault: string
+  modoImport: 'validas_apenas' | 'todas'
+}
