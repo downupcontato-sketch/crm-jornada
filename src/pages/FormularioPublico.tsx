@@ -97,7 +97,6 @@ export default function FormularioPublico() {
         local_culto: form.localCulto,
         culto_captacao: form.dataEntrada,
         captador_id: null,
-        etapa_atual: 0,
         status: 'pendente_aprovacao',
         fase_pipeline: 'CONTATO_INICIAL',
         subetapa_contato: 'TENTATIVA_1',
