@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { CheckCircle, XCircle, Power, X, Pencil, RotateCcw } from 'lucide-react'
+import { CheckCircle, XCircle, Power, X, Pencil, RotateCcw, KeyRound } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Layout } from '@/components/layout/Layout'
 import { toast } from 'sonner'
@@ -46,6 +46,8 @@ export default function Usuarios() {
   const { profile, isAdmin, isCoordenador } = useAuth()
   const [tab, setTab] = useState<Tab>('pendentes')
   const [rejectModal, setRejectModal] = useState<Profile | null>(null)
+  const [resetSenhaModal, setResetSenhaModal] = useState<Profile | null>(null)
+  const [resetLoading, setResetLoading] = useState(false)
   const [rejectNote, setRejectNote] = useState('')
   const [pendingNiveis, setPendingNiveis] = useState<Record<string, UserNivel>>({})
   const [pendingGrupos, setPendingGrupos] = useState<Record<string, ContactGrupo | ''>>({})
@@ -134,6 +136,23 @@ export default function Usuarios() {
     const { error } = await supabase.from('profiles').update({ ativo: !u.ativo }).eq('id', u.id)
     if (error) toast.error('Erro.')
     else { toast.success(u.ativo ? 'Desativado.' : 'Ativado.'); qc.invalidateQueries({ queryKey: ['users'] }) }
+  }
+
+  async function handleResetSenha() {
+    if (!resetSenhaModal) return
+    setResetLoading(true)
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(resetSenhaModal.email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      })
+      if (error) throw error
+      toast.success(`Link de redefinição enviado para ${resetSenhaModal.email}`)
+      setResetSenhaModal(null)
+    } catch {
+      toast.error('Erro ao enviar o link. Verifique se o email está correto.')
+    } finally {
+      setResetLoading(false)
+    }
   }
 
   async function handleEdit() {
@@ -253,6 +272,10 @@ export default function Usuarios() {
                     className="p-1.5 text-muted-foreground hover:text-menta-light transition-colors" title="Editar">
                     <Pencil size={15} />
                   </button>
+                  <button onClick={() => setResetSenhaModal(u)}
+                    className="p-1.5 text-muted-foreground hover:text-yellow-400 transition-colors" title="Redefinir senha">
+                    <KeyRound size={15} />
+                  </button>
                   <button onClick={() => toggleActive(u)}
                     className={cn('p-1.5 transition-colors', u.ativo ? 'text-muted-foreground hover:text-red-400' : 'text-muted-foreground hover:text-emerald-400')}
                     title={u.ativo ? 'Desativar' : 'Ativar'}>
@@ -314,6 +337,38 @@ export default function Usuarios() {
               <button onClick={handleReject}
                 className="flex-1 text-sm px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-all">
                 Confirmar rejeição
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal de Reset de Senha ── */}
+      {resetSenhaModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center px-4 pb-4 sm:pb-0">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setResetSenhaModal(null)} />
+          <div className="relative bg-card border border-border rounded-2xl w-full max-w-md p-5 animate-fade-in">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-offwhite">Redefinir senha</h2>
+              <button onClick={() => setResetSenhaModal(null)} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
+            </div>
+            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3 mb-4">
+              <div className="flex items-start gap-2">
+                <KeyRound size={15} className="text-yellow-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm text-offwhite font-medium">{resetSenhaModal.nome}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{resetSenhaModal.email}</p>
+                </div>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground mb-5">
+              Um link de redefinição de senha será enviado para o email acima. A pessoa poderá criar uma nova senha ao clicar no link.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setResetSenhaModal(null)} className="zion-btn-secondary flex-1 text-sm">Cancelar</button>
+              <button onClick={handleResetSenha} disabled={resetLoading}
+                className="flex-1 text-sm px-4 py-2 rounded-lg bg-yellow-500/15 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/25 transition-all disabled:opacity-50">
+                {resetLoading ? 'Enviando...' : 'Enviar link de redefinição'}
               </button>
             </div>
           </div>
