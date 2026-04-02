@@ -107,8 +107,9 @@ export default function FormularioPublico() {
       })
       if (error) throw error
       setSuccess(true)
-    } catch {
-      setErrors({ geral: 'Erro ao enviar. Tente novamente.' })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : (err as { message?: string })?.message ?? JSON.stringify(err)
+      setErrors({ geral: `Erro: ${msg}` })
     } finally {
       setLoading(false)
     }
