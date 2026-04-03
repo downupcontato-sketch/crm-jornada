@@ -40,6 +40,7 @@ export interface DadosRelatorio {
   sla: { ok: number; warn: number; over: number }
   batizados: number
   porVoluntario: { id: string; nome: string; grupo: string; totalContatos: number }[]
+  porIgrejaOrigem: { nome: string; count: number }[]
 }
 
 // ─── Estilos ─────────────────────────────────────────────────────────────────
@@ -82,7 +83,7 @@ const s = StyleSheet.create({
 // ─── Componente PDF ───────────────────────────────────────────────────────────
 
 export function RelatorioPDF({ dados }: { dados: DadosRelatorio }) {
-  const { meta, porFase, porGrupo, porLocal, porTipo, taxaConversao, sla, batizados, porVoluntario } = dados
+  const { meta, porFase, porGrupo, porLocal, porTipo, taxaConversao, sla, batizados, porVoluntario, porIgrejaOrigem } = dados
   const dataInicio = new Date(meta.dataInicio).toLocaleDateString('pt-BR')
   const dataFim    = new Date(meta.dataFim).toLocaleDateString('pt-BR')
   const geradoEm   = new Date(meta.geradoEm).toLocaleString('pt-BR')
@@ -198,7 +199,20 @@ export function RelatorioPDF({ dados }: { dados: DadosRelatorio }) {
           })}
         </View>
 
-        {/* 6. Por voluntário */}
+        {/* 6. Igreja de origem (visitantes) */}
+        {porIgrejaOrigem.length > 0 && (
+          <View style={s.section}>
+            <Text style={s.sectionTitle}>Visitantes por igreja de origem</Text>
+            {porIgrejaOrigem.map(ig => (
+              <View key={ig.nome} style={s.row}>
+                <Text style={[s.label, { width: 220 }]}>{ig.nome}</Text>
+                <Text style={s.value}>{ig.count}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* 7. Por voluntário */}
         <View style={s.section}>
           <Text style={s.sectionTitle}>Contatos por voluntário</Text>
           <View style={{ borderRadius: 3, overflow: 'hidden' }}>

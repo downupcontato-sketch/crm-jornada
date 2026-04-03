@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Users, GitMerge, UserPlus, Settings, LogOut, Menu, X, Upload, ListFilter, BarChart2 } from 'lucide-react'
+import { LayoutDashboard, Users, GitMerge, UserPlus, Settings, LogOut, Menu, X, Upload, ListFilter, BarChart2, TrendingUp } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useBadges } from '@/hooks/useBadges'
@@ -17,6 +17,7 @@ const navItems = [
   { to: '/importacao',          icon: <Upload size={20} />,          label: 'Importar',       roles: ['admin', 'lider', 'coordenador'] },
   { to: '/usuarios',            icon: <Settings size={20} />,        label: 'Usuários',       roles: ['admin', 'coordenador'] },
   { to: '/relatorios',          icon: <BarChart2 size={20} />,       label: 'Relatórios',     roles: ['admin', 'lider'] },
+  { to: '/dashboard/entrada',   icon: <TrendingUp size={20} />,      label: 'Visão de Entrada', roles: ['admin', 'lider'] },
 ]
 
 export function Sidebar() {

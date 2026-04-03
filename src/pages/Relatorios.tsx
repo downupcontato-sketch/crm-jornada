@@ -65,7 +65,7 @@ export default function Relatorios() {
         .select(`
           id, nome, telefone, idade, tipo, grupo, fase_pipeline,
           local_culto, culto_captacao, status, updated_at, created_at,
-          voluntario_atribuido_id,
+          voluntario_atribuido_id, possui_igreja_local, igreja_local_nome,
           profiles!contacts_voluntario_atribuido_id_fkey(nome)
         `)
         .in('status', ['ativo', 'sem_resposta', 'encaminhado', 'batizado'])
@@ -93,6 +93,14 @@ export default function Relatorios() {
       const { data: voluntarios } = await qVol
 
       const cs = contacts ?? []
+
+      // — Igreja de origem (visitantes com igreja local informada)
+      const igrejaMap = new Map<string, number>()
+      cs.filter((c: any) => c.tipo === 'visitante' && c.possui_igreja_local && c.igreja_local_nome)
+        .forEach((c: any) => { const n = c.igreja_local_nome!; igrejaMap.set(n, (igrejaMap.get(n) ?? 0) + 1) })
+      const porIgrejaOrigem = [...igrejaMap.entries()]
+        .map(([nome, count]) => ({ nome, count }))
+        .sort((a, b) => b.count - a.count)
 
       // — Por fase
       const porFase = FASES_ATIVAS.map(fase => ({
@@ -168,6 +176,7 @@ export default function Relatorios() {
         sla,
         batizados,
         porVoluntario,
+        porIgrejaOrigem,
       })
     } catch (e: unknown) {
       setErro(e instanceof Error ? e.message : 'Erro ao carregar dados')
@@ -207,6 +216,7 @@ export default function Relatorios() {
         .select(`
           nome, telefone, idade, tipo, grupo, fase_pipeline,
           local_culto, culto_captacao, status, created_at,
+          possui_igreja_local, igreja_local_nome,
           profiles!contacts_voluntario_atribuido_id_fkey(nome)
         `)
         .in('status', ['ativo', 'sem_resposta', 'encaminhado', 'batizado'])
@@ -222,18 +232,20 @@ export default function Relatorios() {
 
       const { data: contatos } = await q
 
-      const rows = (contatos ?? []).map(c => ({
-        'Nome':           c.nome,
-        'Telefone':       c.telefone ?? '',
-        'Idade':          c.idade ?? '',
-        'Tipo':           TIPO_LABEL[c.tipo as ContactTipo] ?? c.tipo,
-        'Grupo':          GRUPO_LABEL[c.grupo as ContactGrupo] ?? c.grupo,
-        'Etapa':          FASE_LABELS[c.fase_pipeline as FasePipeline] ?? c.fase_pipeline,
-        'Local do culto': c.local_culto ?? '',
-        'Data entrada':   c.culto_captacao ? new Date(c.culto_captacao).toLocaleDateString('pt-BR') : '',
-        'Voluntário':     (c.profiles as any)?.nome ?? '',
-        'Status':         c.status,
-        'Cadastrado em':  new Date(c.created_at).toLocaleDateString('pt-BR'),
+      const rows = (contatos ?? []).map((c: any) => ({
+        'Nome':               c.nome,
+        'Telefone':           c.telefone ?? '',
+        'Idade':              c.idade ?? '',
+        'Tipo':               TIPO_LABEL[c.tipo as ContactTipo] ?? c.tipo,
+        'Grupo':              GRUPO_LABEL[c.grupo as ContactGrupo] ?? c.grupo,
+        'Etapa':              FASE_LABELS[c.fase_pipeline as FasePipeline] ?? c.fase_pipeline,
+        'Local do culto':     c.local_culto ?? '',
+        'Data entrada':       c.culto_captacao ? new Date(c.culto_captacao).toLocaleDateString('pt-BR') : '',
+        'Voluntário':         (c.profiles as any)?.nome ?? '',
+        'Status':             c.status,
+        'Possui igreja local': c.possui_igreja_local === true ? 'Sim' : c.possui_igreja_local === false ? 'Não' : '',
+        'Igreja de origem':   c.igreja_local_nome ?? '',
+        'Cadastrado em':      new Date(c.created_at).toLocaleDateString('pt-BR'),
       }))
 
       const ws = XLSX.utils.json_to_sheet(rows)
@@ -443,6 +455,21 @@ export default function Relatorios() {
               </div>
             </div>
           </div>
+
+          {/* Igreja de origem */}
+          {dados.porIgrejaOrigem.length > 0 && (
+            <div className="bg-card border border-border rounded-2xl p-5">
+              <h3 className="text-sm font-medium text-offwhite mb-4">Visitantes por igreja de origem</h3>
+              <div className="space-y-2">
+                {dados.porIgrejaOrigem.map(ig => (
+                  <div key={ig.nome} className="flex items-center justify-between py-1 border-b border-border/50 last:border-0">
+                    <span className="text-xs text-muted-foreground truncate">{ig.nome}</span>
+                    <span className="text-sm font-semibold text-offwhite flex-shrink-0 ml-3">{ig.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Voluntários */}
           <div className="bg-card border border-border rounded-2xl p-5">

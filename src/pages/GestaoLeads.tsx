@@ -26,6 +26,7 @@ const STATUS_BADGE: Record<ContactStatus, { cls: string; label: string }> = {
   batizado:            { cls: 'bg-menta-light/15 text-menta-light border-menta-light/20',    label: 'Batizado' },
   reciclado:           { cls: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/20',       label: 'Reciclado' },
   pendente_aprovacao:  { cls: 'bg-orange-500/15 text-orange-400 border-orange-500/20',       label: 'Pendente' },
+  inativo:             { cls: 'bg-gray-500/15 text-gray-400 border-gray-500/20',             label: 'Inativo' },
 }
 
 const TIPO_BADGE: Record<ContactTipo, { cls: string; label: string }> = {
