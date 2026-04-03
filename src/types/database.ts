@@ -1,7 +1,7 @@
 export type UserNivel = 'admin' | 'lider' | 'coordenador' | 'voluntario' | 'linha_de_frente'
 export type ContactTipo = 'novo_nascimento' | 'reconciliacao' | 'visitante'
 export type ContactGrupo = 'rise' | 'flow' | 'vox' | 'ek' | 'zion_geral'
-export type ContactStatus = 'ativo' | 'sem_resposta' | 'encaminhado' | 'arquivado' | 'batizado' | 'reciclado' | 'pendente_aprovacao'
+export type ContactStatus = 'ativo' | 'sem_resposta' | 'encaminhado' | 'arquivado' | 'batizado' | 'reciclado' | 'pendente_aprovacao' | 'inativo'
 export type SlaStatus = 'ok' | 'atencao' | 'vencido'
 export type InteractionTipo = 'whatsapp' | 'ligacao' | 'presencial' | 'zoom'
 export type InteractionResultado = 'respondeu' | 'nao_atendeu' | 'sem_resposta' | 'avancou' | 'recusou'
@@ -77,6 +77,8 @@ export interface Contact {
   igreja_origem: string | null
   culto_captacao: string | null
   local_culto: string | null
+  possui_igreja_local: boolean | null
+  igreja_local_nome: string | null
   captador_id: string | null
   numero_pulseira: string | null
   autorizacao_contato: boolean
