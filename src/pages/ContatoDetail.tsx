@@ -1,7 +1,8 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { ArrowLeft, Phone, MessageSquare, Clock, User, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Phone, MessageSquare, Clock, User, ChevronRight, MinusCircle } from 'lucide-react'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { Layout } from '@/components/layout/Layout'
 import { InteractionModal } from '@/components/contacts/InteractionModal'
@@ -9,7 +10,8 @@ import { BadgeSLA } from '@/components/contacts/BadgeSLA'
 import { cn, formatRelativeTime, getGrupoLabel, getTipoLabel, getTipoBadgeColor, getStatusColor, formatPhone } from '@/lib/utils'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import type { Contact, Interaction, PipelineStage } from '@/types/database'
+import type { Contact, Interaction, PipelineStage, SubtipoVisitante } from '@/types/database'
+import { SUBTIPO_VISITANTE_LABEL } from '@/types/database'
 
 export default function ContatoDetail() {
   const { id } = useParams<{ id: string }>()
@@ -42,6 +44,14 @@ export default function ContatoDetail() {
   })
 
   const contactStage = stages?.find(s => s.ordem === contact?.etapa_atual) ?? null
+
+  async function handleMarcarInativo() {
+    if (!contact) return
+    const { error } = await supabase.from('contacts').update({ status: 'inativo' }).eq('id', contact.id)
+    if (error) { toast.error('Erro ao marcar como inativo'); return }
+    toast.success('Contato marcado como inativo')
+    qc.invalidateQueries({ queryKey: ['contact', id] })
+  }
 
   if (isLoading) return <Layout><div className="flex items-center justify-center h-64"><div className="w-8 h-8 border-2 border-menta-light border-t-transparent rounded-full animate-spin"/></div></Layout>
   if (!contact) return <Layout><p className="text-muted-foreground">Contato não encontrado.</p></Layout>
@@ -76,6 +86,14 @@ export default function ContatoDetail() {
             {contact.sexo && <InfoRow icon={<User size={14}/>} label="Sexo" value={contact.sexo}/>}
             {contact.idade && <InfoRow icon={<User size={14}/>} label="Idade" value={`${contact.idade} anos`}/>}
             {contact.igreja_origem && <InfoRow icon={<User size={14}/>} label="Igreja Origem" value={contact.igreja_origem}/>}
+            {contact.tipo === 'visitante' && contact.subtipo_visitante && (
+              <InfoRow icon={<User size={14}/>} label="Perfil visitante"
+                value={SUBTIPO_VISITANTE_LABEL[contact.subtipo_visitante as SubtipoVisitante]} />
+            )}
+            {contact.tipo === 'visitante' && contact.subtipo_visitante === 'COM_IGREJA' && (
+              <InfoRow icon={<User size={14}/>} label="Igreja de origem"
+                value={contact.igreja_local_nome || '—'} />
+            )}
             <InfoRow icon={<Clock size={14}/>} label="Cadastrado" value={formatRelativeTime(contact.created_at)}/>
             <InfoRow icon={<MessageSquare size={14}/>} label="Tentativas" value={`${contact.tentativas_contato}x`}/>
             {contact.posicao_fila != null && <InfoRow icon={<Clock size={14}/>} label="Posição na Fila" value={`#${contact.posicao_fila}`}/>}
@@ -93,6 +111,12 @@ export default function ContatoDetail() {
               <MessageSquare size={15}/>Registrar
             </button>
           </div>
+          {contact.status === 'ativo' && (
+            <button onClick={handleMarcarInativo}
+              className="w-full flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-yellow-400 hover:bg-yellow-400/5 border border-border hover:border-yellow-400/30 px-4 py-2 rounded-lg transition-all">
+              <MinusCircle size={13}/>Marcar como inativo
+            </button>
+          )}
         </div>
         <div className="lg:col-span-2">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Histórico de Interações</h2>

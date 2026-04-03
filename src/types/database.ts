@@ -1,4 +1,11 @@
 export type UserNivel = 'admin' | 'lider' | 'coordenador' | 'voluntario' | 'linha_de_frente'
+export type SubtipoVisitante = 'CONHECENDO' | 'SEM_IGREJA' | 'COM_IGREJA'
+
+export const SUBTIPO_VISITANTE_LABEL: Record<SubtipoVisitante, string> = {
+  CONHECENDO: 'Estou conhecendo',
+  SEM_IGREJA: 'Não tem igreja local',
+  COM_IGREJA:  'Tem igreja local',
+}
 export type ContactTipo = 'novo_nascimento' | 'reconciliacao' | 'visitante'
 export type ContactGrupo = 'rise' | 'flow' | 'vox' | 'ek' | 'zion_geral'
 export type ContactStatus = 'ativo' | 'sem_resposta' | 'encaminhado' | 'arquivado' | 'batizado' | 'reciclado' | 'pendente_aprovacao' | 'inativo'
@@ -79,6 +86,7 @@ export interface Contact {
   local_culto: string | null
   possui_igreja_local: boolean | null
   igreja_local_nome: string | null
+  subtipo_visitante: SubtipoVisitante | null
   captador_id: string | null
   numero_pulseira: string | null
   autorizacao_contato: boolean

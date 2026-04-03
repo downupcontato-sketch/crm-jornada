@@ -1,10 +1,26 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { CheckCircle, ChevronLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { calcularGrupo } from '@/lib/calcularGrupo'
 import { LOCAL_OPTIONS } from '@/lib/locaisCulto'
-import { cn } from '@/lib/utils'
-import type { ContactTipo } from '@/types/database'
+import type { ContactTipo, SubtipoVisitante } from '@/types/database'
+
+// ─── Tipos internos ─────────────────────────────────────────────────────────
+
+type StepContent = 'voce' | 'momento' | 'perfil' | 'local'
+
+const SUBTIPOS: { value: SubtipoVisitante; label: string; sub: string }[] = [
+  { value: 'CONHECENDO', label: 'Estou conhecendo',      sub: 'Primeira vez ou ainda explorando' },
+  { value: 'SEM_IGREJA', label: 'Não tenho igreja local', sub: 'Sem vínculo religioso atualmente' },
+  { value: 'COM_IGREJA', label: 'Tenho uma igreja local', sub: 'Venho de outra denominação' },
+]
+
+const STEP_SUBTITLE: Record<StepContent, string> = {
+  voce:    'Conte um pouco sobre você',
+  momento: 'Seu momento com Deus',
+  perfil:  'Nos conte um pouco mais',
+  local:   'Onde você estava?',
+}
 
 // ─── Máscara de telefone ────────────────────────────────────────────────────
 
@@ -24,6 +40,8 @@ interface FormData {
   tipo: ContactTipo | ''
   dataEntrada: string
   localCulto: string
+  subtipoVisitante: SubtipoVisitante | ''
+  igrejaLocalNome: string
 }
 
 function emptyForm(): FormData {
@@ -34,6 +52,8 @@ function emptyForm(): FormData {
     tipo: '',
     dataEntrada: new Date().toISOString().split('T')[0],
     localCulto: '',
+    subtipoVisitante: '',
+    igrejaLocalNome: '',
   }
 }
 
@@ -46,32 +66,65 @@ export default function FormularioPublico() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
 
-  function set(field: keyof FormData, value: string) {
+  const isVisitante = form.tipo === 'visitante'
+  const totalSteps  = isVisitante ? 4 : 3
+
+  function getStepContent(s: number): StepContent {
+    if (!isVisitante) {
+      if (s === 3) return 'local'
+      if (s === 2) return 'momento'
+      return 'voce'
+    }
+    if (s === 4) return 'local'
+    if (s === 3) return 'perfil'
+    if (s === 2) return 'momento'
+    return 'voce'
+  }
+
+  const content = getStepContent(step)
+
+  function set<K extends keyof FormData>(field: K, value: FormData[K]) {
     setForm(f => ({ ...f, [field]: value }))
     setErrors(e => ({ ...e, [field]: '' }))
   }
 
-  // Validação por step
-  function validate(): boolean {
+  function setTipo(value: ContactTipo) {
+    setForm(f => ({ ...f, tipo: value, subtipoVisitante: '', igrejaLocalNome: '' }))
+    setErrors(e => ({ ...e, tipo: '' }))
+  }
+
+  function validateStep(s: number): boolean {
     const errs: Record<string, string> = {}
-    if (step === 1) {
+    const c = getStepContent(s)
+
+    if (c === 'voce') {
       if (!form.nome.trim()) errs.nome = 'Informe seu nome'
       if (form.telefone.replace(/\D/g, '').length < 10) errs.telefone = 'Telefone inválido'
       if (!form.idade || isNaN(Number(form.idade)) || Number(form.idade) < 0) errs.idade = 'Informe sua idade'
     }
-    if (step === 2) {
-      if (!form.tipo) errs.tipo = 'Selecione uma opção'
+
+    if (c === 'momento') {
+      if (!form.tipo)        errs.tipo = 'Selecione uma opção'
       if (!form.dataEntrada) errs.dataEntrada = 'Informe a data'
     }
-    if (step === 3) {
+
+    if (c === 'perfil') {
+      if (!form.subtipoVisitante)
+        errs.subtipoVisitante = 'Selecione uma opção'
+      if (form.subtipoVisitante === 'COM_IGREJA' && !form.igrejaLocalNome.trim())
+        errs.igrejaLocalNome = 'Informe o nome da sua igreja'
+    }
+
+    if (c === 'local') {
       if (!form.localCulto) errs.localCulto = 'Selecione onde você estava'
     }
+
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
 
   function next() {
-    if (validate()) setStep(s => s + 1)
+    if (validateStep(step)) setStep(s => s + 1)
   }
 
   function back() {
@@ -80,34 +133,43 @@ export default function FormularioPublico() {
   }
 
   async function handleSubmit() {
-    if (!validate()) return
+    if (!validateStep(step)) return
     setLoading(true)
     try {
-      const idade = Number(form.idade)
-      const grupo = calcularGrupo(idade)
+      const idade  = Number(form.idade)
+      const grupo  = calcularGrupo(idade)
+      const subtipo = isVisitante ? (form.subtipoVisitante || null) : null
+
       const { error } = await supabase.from('contacts').insert({
-        nome: form.nome.trim(),
-        telefone: form.telefone.replace(/\D/g, ''),
-        email: null,
-        whatsapp_valido: true,
-        tipo: form.tipo as ContactTipo,
+        nome:               form.nome.trim(),
+        telefone:           form.telefone.replace(/\D/g, ''),
+        email:              null,
+        whatsapp_valido:    true,
+        tipo:               form.tipo as ContactTipo,
         grupo,
         idade,
-        sexo: null,
-        local_culto: form.localCulto,
-        culto_captacao: form.dataEntrada,
-        captador_id: null,
-        status: 'pendente_aprovacao',
-        fase_pipeline: 'CONTATO_INICIAL',
-        subetapa_contato: 'TENTATIVA_1',
-        sla_status: 'ok',
+        sexo:               null,
+        local_culto:        form.localCulto,
+        culto_captacao:     form.dataEntrada,
+        subtipo_visitante:  subtipo,
+        possui_igreja_local: subtipo === 'COM_IGREJA' ? true : subtipo === 'SEM_IGREJA' ? false : null,
+        igreja_local_nome:  subtipo === 'COM_IGREJA' && form.igrejaLocalNome.trim()
+                              ? form.igrejaLocalNome.trim()
+                              : null,
+        captador_id:        null,
+        status:             'pendente_aprovacao',
+        fase_pipeline:      'CONTATO_INICIAL',
+        subetapa_contato:   'TENTATIVA_1',
+        sla_status:         'ok',
         tentativas_contato: 0,
         autorizacao_contato: true,
       })
       if (error) throw error
       setSuccess(true)
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : (err as { message?: string })?.message ?? JSON.stringify(err)
+      const msg = err instanceof Error
+        ? err.message
+        : (err as { message?: string })?.message ?? JSON.stringify(err)
       setErrors({ geral: `Erro: ${msg}` })
     } finally {
       setLoading(false)
@@ -167,14 +229,14 @@ export default function FormularioPublico() {
         </div>
         <h1 className="text-xl font-semibold text-white">Bem-vindo à Jornada</h1>
         <p className="text-sm mt-1" style={{ color: '#5A7A82' }}>
-          {{ 1: 'Conte um pouco sobre você', 2: 'Seu momento com Deus', 3: 'Onde você estava?' }[step]}
+          {STEP_SUBTITLE[content]}
         </p>
       </div>
 
-      {/* Progress */}
+      {/* Progress — adapta ao totalSteps */}
       <div className="flex items-center gap-2 px-8 mb-6">
-        {[1, 2, 3].map(n => (
-          <div key={n} className={cn('flex-1 h-1 rounded-full transition-all')}
+        {Array.from({ length: totalSteps }, (_, i) => i + 1).map(n => (
+          <div key={n} className="flex-1 h-1 rounded-full transition-all"
             style={{ background: n <= step ? '#00B0A8' : '#1A3540' }} />
         ))}
       </div>
@@ -184,8 +246,8 @@ export default function FormularioPublico() {
         <div className="max-w-md mx-auto rounded-3xl p-6 space-y-5"
           style={{ background: '#0C1D23', border: '1px solid #1A3540' }}>
 
-          {/* ── STEP 1: Você ── */}
-          {step === 1 && (
+          {/* ── STEP: Você ── */}
+          {content === 'voce' && (
             <>
               <Field label="Nome completo" error={errors.nome}>
                 <input
@@ -214,22 +276,22 @@ export default function FormularioPublico() {
             </>
           )}
 
-          {/* ── STEP 2: Momento ── */}
-          {step === 2 && (
+          {/* ── STEP: Momento ── */}
+          {content === 'momento' && (
             <>
               <Field label="O que melhor descreve você?" error={errors.tipo}>
                 <div className="flex flex-col gap-2">
                   {([
                     { value: 'novo_nascimento', label: 'Novo Nascimento', desc: 'Aceitei Jesus recentemente' },
-                    { value: 'reconciliacao', label: 'Reconciliação', desc: 'Quero voltar para Deus' },
-                    { value: 'visitante', label: 'Visitante', desc: 'Estou conhecendo a Zion' },
+                    { value: 'reconciliacao',   label: 'Reconciliação',   desc: 'Quero voltar para Deus' },
+                    { value: 'visitante',       label: 'Visitante',       desc: 'Estou conhecendo a Zion' },
                   ] as const).map(opt => {
                     const active = form.tipo === opt.value
                     return (
-                      <button key={opt.value} onClick={() => set('tipo', opt.value)}
+                      <button key={opt.value} onClick={() => setTipo(opt.value)}
                         className="text-left px-4 py-3 rounded-xl transition-all"
                         style={{
-                          border: active ? '1px solid #00B0A8' : '1px solid #1A3540',
+                          border:     active ? '1px solid #00B0A8' : '1px solid #1A3540',
                           background: active ? 'rgba(0,176,168,0.08)' : 'transparent',
                         }}>
                         <p className="text-sm font-medium" style={{ color: active ? '#00B0A8' : '#fff' }}>{opt.label}</p>
@@ -250,8 +312,48 @@ export default function FormularioPublico() {
             </>
           )}
 
-          {/* ── STEP 3: Local ── */}
-          {step === 3 && (
+          {/* ── STEP: Perfil (visitante only) ── */}
+          {content === 'perfil' && (
+            <>
+              <Field label="Como você se descreve?" error={errors.subtipoVisitante}>
+                <div className="flex flex-col gap-2">
+                  {SUBTIPOS.map(s => {
+                    const active = form.subtipoVisitante === s.value
+                    return (
+                      <button key={s.value}
+                        onClick={() => {
+                          set('subtipoVisitante', s.value)
+                          if (s.value !== 'COM_IGREJA') set('igrejaLocalNome', '')
+                        }}
+                        className="text-left px-4 py-3.5 rounded-xl transition-all"
+                        style={{
+                          border:     active ? '1px solid #00B0A8' : '1px solid #1A3540',
+                          background: active ? 'rgba(0,176,168,0.08)' : 'transparent',
+                        }}>
+                        <p className="text-sm font-medium" style={{ color: active ? '#00B0A8' : '#fff' }}>{s.label}</p>
+                        <p className="text-xs mt-0.5" style={{ color: '#5A7A82' }}>{s.sub}</p>
+                      </button>
+                    )
+                  })}
+                </div>
+              </Field>
+
+              {form.subtipoVisitante === 'COM_IGREJA' && (
+                <Field label="Qual é a sua igreja?" error={errors.igrejaLocalNome}>
+                  <input
+                    type="text" placeholder="Ex: Lagoinha, Batista, Católica..."
+                    autoFocus
+                    value={form.igrejaLocalNome}
+                    onChange={e => set('igrejaLocalNome', e.target.value)}
+                    style={inputStyle(!!errors.igrejaLocalNome)}
+                  />
+                </Field>
+              )}
+            </>
+          )}
+
+          {/* ── STEP: Local ── */}
+          {content === 'local' && (
             <Field label="Aonde você estava?" error={errors.localCulto}>
               <div className="max-h-72 overflow-y-auto space-y-4 pr-1">
                 {LOCAL_OPTIONS.map(group => (
@@ -266,10 +368,10 @@ export default function FormularioPublico() {
                           <button key={item} onClick={() => set('localCulto', item)}
                             className="text-sm px-3 py-1.5 rounded-full transition-all"
                             style={{
-                              border: active ? '1px solid #00B0A8' : '1px solid #1A3540',
-                              background: active ? '#00B0A8' : 'transparent',
-                              color: active ? '#071C23' : '#7A9FA8',
-                              fontWeight: active ? 600 : 400,
+                              border:      active ? '1px solid #00B0A8' : '1px solid #1A3540',
+                              background:  active ? '#00B0A8' : 'transparent',
+                              color:       active ? '#071C23' : '#7A9FA8',
+                              fontWeight:  active ? 600 : 400,
                             }}>
                             {item}
                           </button>
@@ -303,11 +405,11 @@ export default function FormularioPublico() {
               </button>
             )}
             <button
-              onClick={step < 3 ? next : handleSubmit}
+              onClick={step < totalSteps ? next : handleSubmit}
               disabled={loading}
               className="flex-1 py-3 rounded-2xl text-sm font-semibold transition-all disabled:opacity-50"
               style={{ background: '#00B0A8', color: '#071C23' }}>
-              {loading ? 'Enviando...' : step < 3 ? 'Continuar' : 'Enviar cadastro'}
+              {loading ? 'Enviando...' : step < totalSteps ? 'Continuar' : 'Enviar cadastro'}
             </button>
           </div>
         </div>

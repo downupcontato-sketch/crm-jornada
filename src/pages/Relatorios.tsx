@@ -65,7 +65,7 @@ export default function Relatorios() {
         .select(`
           id, nome, telefone, idade, tipo, grupo, fase_pipeline,
           local_culto, culto_captacao, status, updated_at, created_at,
-          voluntario_atribuido_id, possui_igreja_local, igreja_local_nome,
+          voluntario_atribuido_id, subtipo_visitante, igreja_local_nome,
           profiles!contacts_voluntario_atribuido_id_fkey(nome)
         `)
         .in('status', ['ativo', 'sem_resposta', 'encaminhado', 'batizado'])
@@ -94,9 +94,9 @@ export default function Relatorios() {
 
       const cs = contacts ?? []
 
-      // — Igreja de origem (visitantes com igreja local informada)
+      // — Igreja de origem (visitantes COM_IGREJA)
       const igrejaMap = new Map<string, number>()
-      cs.filter((c: any) => c.tipo === 'visitante' && c.possui_igreja_local && c.igreja_local_nome)
+      cs.filter((c: any) => c.tipo === 'visitante' && c.subtipo_visitante === 'COM_IGREJA' && c.igreja_local_nome)
         .forEach((c: any) => { const n = c.igreja_local_nome!; igrejaMap.set(n, (igrejaMap.get(n) ?? 0) + 1) })
       const porIgrejaOrigem = [...igrejaMap.entries()]
         .map(([nome, count]) => ({ nome, count }))
@@ -216,7 +216,7 @@ export default function Relatorios() {
         .select(`
           nome, telefone, idade, tipo, grupo, fase_pipeline,
           local_culto, culto_captacao, status, created_at,
-          possui_igreja_local, igreja_local_nome,
+          subtipo_visitante, igreja_local_nome,
           profiles!contacts_voluntario_atribuido_id_fkey(nome)
         `)
         .in('status', ['ativo', 'sem_resposta', 'encaminhado', 'batizado'])
@@ -243,7 +243,10 @@ export default function Relatorios() {
         'Data entrada':       c.culto_captacao ? new Date(c.culto_captacao).toLocaleDateString('pt-BR') : '',
         'Voluntário':         (c.profiles as any)?.nome ?? '',
         'Status':             c.status,
-        'Possui igreja local': c.possui_igreja_local === true ? 'Sim' : c.possui_igreja_local === false ? 'Não' : '',
+        'Perfil visitante':   c.subtipo_visitante === 'CONHECENDO' ? 'Estou conhecendo'
+                              : c.subtipo_visitante === 'SEM_IGREJA' ? 'Não tem igreja local'
+                              : c.subtipo_visitante === 'COM_IGREJA'  ? 'Tem igreja local'
+                              : '',
         'Igreja de origem':   c.igreja_local_nome ?? '',
         'Cadastrado em':      new Date(c.created_at).toLocaleDateString('pt-BR'),
       }))

@@ -55,7 +55,7 @@ export default function DashboardEntrada() {
     const iniciMes = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
 
     let q = supabase.from('contacts')
-      .select('tipo,grupo,local_culto,idade,possui_igreja_local,igreja_local_nome,fase_pipeline,created_at')
+      .select('tipo,grupo,local_culto,idade,subtipo_visitante,igreja_local_nome,fase_pipeline,created_at')
       .gte('created_at', desde)
       .neq('status', 'pendente_aprovacao')
     if (isLider && !isAdmin && profile?.grupo) q = q.eq('grupo', profile.grupo)
@@ -101,10 +101,10 @@ export default function DashboardEntrada() {
     })
     const tendenciaSemanal = [...semanaMap.entries()].map(([semana, total]) => ({ semana, total })).sort((a, b) => a.semana.localeCompare(b.semana))
 
-    // Por igreja de origem (visitantes)
+    // Por igreja de origem (visitantes COM_IGREJA)
     const igrejaMap = new Map<string, number>()
-    cs.filter(c => c.tipo === 'visitante' && c.possui_igreja_local && c.igreja_local_nome)
-      .forEach(c => { const n = c.igreja_local_nome!; igrejaMap.set(n, (igrejaMap.get(n) ?? 0) + 1) })
+    cs.filter((c: any) => c.tipo === 'visitante' && c.subtipo_visitante === 'COM_IGREJA' && c.igreja_local_nome)
+      .forEach((c: any) => { const n = c.igreja_local_nome!; igrejaMap.set(n, (igrejaMap.get(n) ?? 0) + 1) })
     const porIgrejaOrigem = [...igrejaMap.entries()].map(([nome, count]) => ({ nome, count })).sort((a, b) => b.count - a.count)
 
     setDados({
