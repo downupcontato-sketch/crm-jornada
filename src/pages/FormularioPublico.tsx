@@ -10,9 +10,9 @@ import type { ContactTipo, SubtipoVisitante } from '@/types/database'
 type StepContent = 'voce' | 'momento' | 'perfil' | 'local'
 
 const SUBTIPOS: { value: SubtipoVisitante; label: string; sub: string }[] = [
-  { value: 'CONHECENDO', label: 'Estou conhecendo',      sub: 'Primeira vez ou ainda explorando' },
-  { value: 'SEM_IGREJA', label: 'Não tenho igreja local', sub: 'Sem vínculo religioso atualmente' },
-  { value: 'COM_IGREJA', label: 'Tenho uma igreja local', sub: 'Venho de outra denominação' },
+  { value: 'SEM_IGREJA', label: 'Não tenho igreja no momento', sub: 'Sem vínculo religioso atualmente' },
+  { value: 'CONHECENDO', label: 'Nunca frequentei uma Igreja',  sub: 'Primeira vez ou ainda explorando' },
+  { value: 'COM_IGREJA', label: 'Tenho uma igreja local',       sub: 'Venho de outra denominação' },
 ]
 
 const STEP_SUBTITLE: Record<StepContent, string> = {
