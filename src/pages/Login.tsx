@@ -65,10 +65,15 @@ export default function Login() {
             {loading ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
-        <p className="text-center text-xs text-muted-foreground mt-8">
-          Sem acesso?{' '}
-          <Link to="/solicitar-acesso" className="text-menta-light hover:underline">Solicitar acesso</Link>
-        </p>
+        <div className="mt-6 space-y-2 text-center">
+          <p className="text-xs text-muted-foreground">
+            <Link to="/esqueci-senha" className="text-menta-light hover:underline">Esqueci minha senha</Link>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Sem acesso?{' '}
+            <Link to="/solicitar-acesso" className="text-menta-light hover:underline">Solicitar acesso</Link>
+          </p>
+        </div>
       </div>
     </div>
   )

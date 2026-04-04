@@ -20,6 +20,8 @@ import DashboardCoordenador from '@/pages/DashboardCoordenador'
 import FormularioPublico from '@/pages/FormularioPublico'
 import Relatorios from '@/pages/Relatorios'
 import DashboardEntrada from '@/pages/DashboardEntrada'
+import EsqueciSenha from '@/pages/EsqueciSenha'
+import ResetPassword from '@/pages/ResetPassword'
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30000, retry: 1 } } })
 
@@ -34,6 +36,8 @@ export default function App() {
             <Route path="/solicitar-acesso" element={<SolicitarAcesso />} />
             <Route path="/formulario" element={<FormularioPublico />} />
             <Route path="/aguardando-aprovacao" element={<AguardandoAprovacao />} />
+            <Route path="/esqueci-senha" element={<EsqueciSenha />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/cadastro" element={<ProtectedRoute><Cadastro /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['admin','lider']}><Dashboard /></ProtectedRoute>} />
             <Route path="/pipeline" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador','voluntario','linha_de_frente']}><Pipeline /></ProtectedRoute>} />
