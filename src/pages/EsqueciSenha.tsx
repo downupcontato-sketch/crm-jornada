@@ -14,8 +14,9 @@ export default function EsqueciSenha() {
     if (!email.trim()) { setErro('Informe o email'); return }
     setLoading(true)
     setErro('')
+    const appUrl = import.meta.env.VITE_APP_URL ?? window.location.origin
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: `${appUrl}/reset-password`,
     })
     setLoading(false)
     if (error) {

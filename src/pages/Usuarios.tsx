@@ -142,8 +142,9 @@ export default function Usuarios() {
     if (!resetSenhaModal) return
     setResetLoading(true)
     try {
+      const appUrl = import.meta.env.VITE_APP_URL ?? window.location.origin
       const { error } = await supabase.auth.resetPasswordForEmail(resetSenhaModal.email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `${appUrl}/reset-password`,
       })
       if (error) throw error
       toast.success(`Link de redefinição enviado para ${resetSenhaModal.email}`)
