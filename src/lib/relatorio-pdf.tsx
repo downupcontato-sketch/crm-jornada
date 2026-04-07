@@ -1,6 +1,7 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
 import type { FasePipeline, ContactGrupo, ContactTipo } from '@/types/database'
 import { FASE_LABELS } from '@/lib/pipeline'
+import { LOCAL_OPTIONS } from '@/lib/locaisCulto'
 
 // ─── Labels ─────────────────────────────────────────────────────────────────
 
@@ -17,6 +18,9 @@ export const TIPO_LABEL: Record<ContactTipo, string> = {
   reconciliacao:   'Reconciliação',
   visitante:       'Visitante',
 }
+
+const LOCAIS_CAMPUS      = new Set(LOCAL_OPTIONS.find(g => g.group === 'Campus Chácara Flora')?.items ?? [])
+const LOCAIS_GERACIONAIS = new Set(LOCAL_OPTIONS.find(g => g.group === 'Cultos por Ministério')?.items ?? [])
 
 export const FASES_ATIVAS: FasePipeline[] = [
   'CONTATO_INICIAL', 'QUALIFICACAO', 'AULAS', 'POS_AULA', 'BATIZADO',
@@ -82,10 +86,55 @@ const s = StyleSheet.create({
   header:       { marginBottom: 20 },
 })
 
+// ─── Helper: tabela de matriz tipo × culto ────────────────────────────────────
+
+type MatrizRow = NonNullable<DadosRelatorio['matrizTipoLocal']>[number]
+
+function MatrizPDF({ titulo, rows }: { titulo: string; rows: MatrizRow[] }) {
+  if (rows.length === 0) return null
+  const totalNN  = rows.reduce((a, r) => a + r.novo_nascimento, 0)
+  const totalRec = rows.reduce((a, r) => a + r.reconciliacao, 0)
+  const totalVis = rows.reduce((a, r) => a + r.visitante, 0)
+  const total    = totalNN + totalRec + totalVis
+  return (
+    <View style={s.section}>
+      <Text style={s.sectionTitle}>{titulo}</Text>
+      <View style={{ borderRadius: 3, overflow: 'hidden' }}>
+        <View style={s.tableHeader}>
+          <Text style={[s.th, { flex: 3 }]}>Evento / Culto</Text>
+          <Text style={[s.th, { width: 65, textAlign: 'center' }]}>Novo Nasc.</Text>
+          <Text style={[s.th, { width: 55, textAlign: 'center' }]}>Reconcil.</Text>
+          <Text style={[s.th, { width: 50, textAlign: 'center' }]}>Visitante</Text>
+          <Text style={[s.th, { width: 40, textAlign: 'right' }]}>Total</Text>
+        </View>
+        {rows.map((row, i) => (
+          <View key={row.local} style={i % 2 === 0 ? s.tableRow : s.tableRowAlt}>
+            <Text style={[s.td, { flex: 3 }]}>{row.local}</Text>
+            <Text style={[s.td, { width: 65, textAlign: 'center' }]}>{row.novo_nascimento || '—'}</Text>
+            <Text style={[s.td, { width: 55, textAlign: 'center' }]}>{row.reconciliacao   || '—'}</Text>
+            <Text style={[s.td, { width: 50, textAlign: 'center' }]}>{row.visitante       || '—'}</Text>
+            <Text style={[s.td, { width: 40, textAlign: 'right', fontWeight: 'bold' }]}>{row.total}</Text>
+          </View>
+        ))}
+        {/* Linha de total */}
+        <View style={[s.tableRow, { backgroundColor: C.lightGray }]}>
+          <Text style={[s.td, { flex: 3, fontWeight: 'bold', color: C.petroleo }]}>Total</Text>
+          <Text style={[s.td, { width: 65, textAlign: 'center', fontWeight: 'bold' }]}>{totalNN}</Text>
+          <Text style={[s.td, { width: 55, textAlign: 'center', fontWeight: 'bold' }]}>{totalRec}</Text>
+          <Text style={[s.td, { width: 50, textAlign: 'center', fontWeight: 'bold' }]}>{totalVis}</Text>
+          <Text style={[s.td, { width: 40, textAlign: 'right', fontWeight: 'bold', color: C.teal }]}>{total}</Text>
+        </View>
+      </View>
+    </View>
+  )
+}
+
 // ─── Componente PDF ───────────────────────────────────────────────────────────
 
 export function RelatorioPDF({ dados }: { dados: DadosRelatorio }) {
   const { meta, porFase, porGrupo, porLocal, porTipo, taxaConversao, sla, batizados, porVoluntario, porIgrejaOrigem, porSexo, matrizTipoLocal } = dados
+  const matrizCampus      = (matrizTipoLocal ?? []).filter(r => LOCAIS_CAMPUS.has(r.local as any))
+  const matrizGeracionais = (matrizTipoLocal ?? []).filter(r => LOCAIS_GERACIONAIS.has(r.local as any))
   const dataInicio = new Date(meta.dataInicio).toLocaleDateString('pt-BR')
   const dataFim    = new Date(meta.dataFim).toLocaleDateString('pt-BR')
   const geradoEm   = new Date(meta.geradoEm).toLocaleString('pt-BR')
@@ -214,30 +263,10 @@ export function RelatorioPDF({ dados }: { dados: DadosRelatorio }) {
           })}
         </View>
 
-        {/* 6. Matriz tipo × local */}
-        {matrizTipoLocal && matrizTipoLocal.length > 0 && (
-          <View style={s.section}>
-            <Text style={s.sectionTitle}>Conversões por culto</Text>
-            <View style={{ borderRadius: 3, overflow: 'hidden' }}>
-              <View style={s.tableHeader}>
-                <Text style={[s.th, { flex: 3 }]}>Evento / Culto</Text>
-                <Text style={[s.th, { width: 60, textAlign: 'center' }]}>Novo Nasc.</Text>
-                <Text style={[s.th, { width: 55, textAlign: 'center' }]}>Reconcil.</Text>
-                <Text style={[s.th, { width: 50, textAlign: 'center' }]}>Visitante</Text>
-                <Text style={[s.th, { width: 40, textAlign: 'right' }]}>Total</Text>
-              </View>
-              {matrizTipoLocal.map((row, i) => (
-                <View key={row.local} style={i % 2 === 0 ? s.tableRow : s.tableRowAlt}>
-                  <Text style={[s.td, { flex: 3 }]}>{row.local}</Text>
-                  <Text style={[s.td, { width: 60, textAlign: 'center' }]}>{row.novo_nascimento || '—'}</Text>
-                  <Text style={[s.td, { width: 55, textAlign: 'center' }]}>{row.reconciliacao   || '—'}</Text>
-                  <Text style={[s.td, { width: 50, textAlign: 'center' }]}>{row.visitante       || '—'}</Text>
-                  <Text style={[s.td, { width: 40, textAlign: 'right', fontWeight: 'bold' }]}>{row.total}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
+        {/* 6. Matrizes de conversão por culto */}
+        <MatrizPDF titulo="Conversões por culto — Consolidado" rows={matrizTipoLocal ?? []} />
+        <MatrizPDF titulo="Conversões por culto — Campus Chácara Flora" rows={matrizCampus} />
+        <MatrizPDF titulo="Conversões por culto — Geracionais" rows={matrizGeracionais} />
 
         {/* 7. Igreja de origem (visitantes) */}
         {porIgrejaOrigem.length > 0 && (
