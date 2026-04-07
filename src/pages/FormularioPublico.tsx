@@ -37,6 +37,7 @@ interface FormData {
   nome: string
   telefone: string
   idade: string
+  sexo: 'MASCULINO' | 'FEMININO' | ''
   tipo: ContactTipo | ''
   dataEntrada: string
   localCulto: string
@@ -49,6 +50,7 @@ function emptyForm(): FormData {
     nome: '',
     telefone: '',
     idade: '',
+    sexo: '',
     tipo: '',
     dataEntrada: new Date().toISOString().split('T')[0],
     localCulto: '',
@@ -148,9 +150,9 @@ export default function FormularioPublico() {
         tipo:               form.tipo as ContactTipo,
         grupo,
         idade,
-        sexo:               null,
         local_culto:        form.localCulto,
         culto_captacao:     form.dataEntrada,
+        sexo:               form.sexo || 'NAO_INFORMADO',
         subtipo_visitante:  subtipo,
         possui_igreja_local: subtipo === 'COM_IGREJA' ? true : subtipo === 'SEM_IGREJA' ? false : null,
         igreja_local_nome:  subtipo === 'COM_IGREJA' && form.igrejaLocalNome.trim()
@@ -272,6 +274,25 @@ export default function FormularioPublico() {
                   value={form.idade} onChange={e => set('idade', e.target.value)}
                   style={inputStyle(!!errors.idade)}
                 />
+              </Field>
+
+              <Field label="Sexo (opcional)">
+                <div className="flex gap-2">
+                  {([{ value: 'MASCULINO', label: 'Masculino' }, { value: 'FEMININO', label: 'Feminino' }] as const).map(opt => {
+                    const active = form.sexo === opt.value
+                    return (
+                      <button key={opt.value} onClick={() => set('sexo', active ? '' : opt.value)}
+                        className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all"
+                        style={{
+                          border:     active ? '1px solid #00B0A8' : '1px solid #1A3540',
+                          background: active ? 'rgba(0,176,168,0.1)' : '#071920',
+                          color:      active ? '#00B0A8' : '#7A9FA8',
+                        }}>
+                        {opt.label}
+                      </button>
+                    )
+                  })}
+                </div>
               </Field>
             </>
           )}

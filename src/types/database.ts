@@ -1,5 +1,6 @@
 export type UserNivel = 'admin' | 'lider' | 'coordenador' | 'voluntario' | 'linha_de_frente'
 export type SubtipoVisitante = 'CONHECENDO' | 'SEM_IGREJA' | 'COM_IGREJA'
+export type ContactSexo = 'MASCULINO' | 'FEMININO' | 'NAO_INFORMADO'
 
 export const SUBTIPO_VISITANTE_LABEL: Record<SubtipoVisitante, string> = {
   CONHECENDO: 'Estou conhecendo',
@@ -79,7 +80,7 @@ export interface Contact {
   email: string | null
   tipo: ContactTipo
   grupo: ContactGrupo
-  sexo: 'masculino' | 'feminino' | 'outro' | null
+  sexo: ContactSexo | null
   idade: number | null
   igreja_origem: string | null
   culto_captacao: string | null

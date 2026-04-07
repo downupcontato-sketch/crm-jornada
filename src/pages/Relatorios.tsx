@@ -65,7 +65,7 @@ export default function Relatorios() {
         .select(`
           id, nome, telefone, idade, tipo, grupo, fase_pipeline,
           local_culto, culto_captacao, status, updated_at, created_at,
-          voluntario_atribuido_id, subtipo_visitante, igreja_local_nome,
+          voluntario_atribuido_id, subtipo_visitante, igreja_local_nome, sexo,
           profiles!contacts_voluntario_atribuido_id_fkey(nome)
         `)
         .in('status', ['ativo', 'sem_resposta', 'encaminhado', 'batizado'])
@@ -93,6 +93,24 @@ export default function Relatorios() {
       const { data: voluntarios } = await qVol
 
       const cs = contacts ?? []
+
+      // — Por sexo
+      const sexoMap = new Map<string, number>()
+      cs.forEach((c: any) => { const s = c.sexo ?? 'NAO_INFORMADO'; sexoMap.set(s, (sexoMap.get(s) ?? 0) + 1) })
+      const porSexo = [...sexoMap.entries()].map(([sexo, count]) => ({ sexo, count }))
+
+      // — Matriz tipo × local
+      const matrizMap = new Map<string, { local: string; novo_nascimento: number; reconciliacao: number; visitante: number; total: number }>()
+      cs.forEach((c: any) => {
+        const local = c.local_culto || 'Não informado'
+        if (!matrizMap.has(local)) matrizMap.set(local, { local, novo_nascimento: 0, reconciliacao: 0, visitante: 0, total: 0 })
+        const row = matrizMap.get(local)!
+        if (c.tipo === 'novo_nascimento') row.novo_nascimento++
+        else if (c.tipo === 'reconciliacao') row.reconciliacao++
+        else if (c.tipo === 'visitante') row.visitante++
+        row.total++
+      })
+      const matrizTipoLocal = [...matrizMap.values()].sort((a, b) => b.total - a.total)
 
       // — Igreja de origem (visitantes COM_IGREJA)
       const igrejaMap = new Map<string, number>()
@@ -177,6 +195,8 @@ export default function Relatorios() {
         batizados,
         porVoluntario,
         porIgrejaOrigem,
+        porSexo,
+        matrizTipoLocal,
       })
     } catch (e: unknown) {
       setErro(e instanceof Error ? e.message : 'Erro ao carregar dados')
@@ -216,7 +236,7 @@ export default function Relatorios() {
         .select(`
           nome, telefone, idade, tipo, grupo, fase_pipeline,
           local_culto, culto_captacao, status, created_at,
-          subtipo_visitante, igreja_local_nome,
+          subtipo_visitante, igreja_local_nome, sexo,
           profiles!contacts_voluntario_atribuido_id_fkey(nome)
         `)
         .in('status', ['ativo', 'sem_resposta', 'encaminhado', 'batizado'])
@@ -243,6 +263,7 @@ export default function Relatorios() {
         'Data entrada':       c.culto_captacao ? new Date(c.culto_captacao).toLocaleDateString('pt-BR') : '',
         'Voluntário':         (c.profiles as any)?.nome ?? '',
         'Status':             c.status,
+        'Sexo':               c.sexo === 'MASCULINO' ? 'Masculino' : c.sexo === 'FEMININO' ? 'Feminino' : '',
         'Perfil visitante':   c.subtipo_visitante === 'CONHECENDO' ? 'Estou conhecendo'
                               : c.subtipo_visitante === 'SEM_IGREJA' ? 'Não tem igreja local'
                               : c.subtipo_visitante === 'COM_IGREJA'  ? 'Tem igreja local'

@@ -41,6 +41,8 @@ export interface DadosRelatorio {
   batizados: number
   porVoluntario: { id: string; nome: string; grupo: string; totalContatos: number }[]
   porIgrejaOrigem: { nome: string; count: number }[]
+  porSexo?: { sexo: string; count: number }[]
+  matrizTipoLocal?: { local: string; novo_nascimento: number; reconciliacao: number; visitante: number; total: number }[]
 }
 
 // ─── Estilos ─────────────────────────────────────────────────────────────────
@@ -83,7 +85,7 @@ const s = StyleSheet.create({
 // ─── Componente PDF ───────────────────────────────────────────────────────────
 
 export function RelatorioPDF({ dados }: { dados: DadosRelatorio }) {
-  const { meta, porFase, porGrupo, porLocal, porTipo, taxaConversao, sla, batizados, porVoluntario, porIgrejaOrigem } = dados
+  const { meta, porFase, porGrupo, porLocal, porTipo, taxaConversao, sla, batizados, porVoluntario, porIgrejaOrigem, porSexo, matrizTipoLocal } = dados
   const dataInicio = new Date(meta.dataInicio).toLocaleDateString('pt-BR')
   const dataFim    = new Date(meta.dataFim).toLocaleDateString('pt-BR')
   const geradoEm   = new Date(meta.geradoEm).toLocaleString('pt-BR')
@@ -174,6 +176,19 @@ export function RelatorioPDF({ dados }: { dados: DadosRelatorio }) {
           ))}
         </View>
 
+        {/* 5. Por sexo */}
+        {porSexo && porSexo.filter(s => s.sexo !== 'NAO_INFORMADO').length > 0 && (
+          <View style={s.section}>
+            <Text style={s.sectionTitle}>Distribuição por sexo</Text>
+            {porSexo.filter(s => s.sexo !== 'NAO_INFORMADO').map(sx => (
+              <View key={sx.sexo} style={s.row}>
+                <Text style={s.label}>{sx.sexo === 'MASCULINO' ? 'Masculino' : 'Feminino'}</Text>
+                <Text style={s.value}>{sx.count}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
         <View style={s.footer} fixed>
           <Text>Jornada CRM · Zion Church</Text>
           <Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
@@ -199,7 +214,32 @@ export function RelatorioPDF({ dados }: { dados: DadosRelatorio }) {
           })}
         </View>
 
-        {/* 6. Igreja de origem (visitantes) */}
+        {/* 6. Matriz tipo × local */}
+        {matrizTipoLocal && matrizTipoLocal.length > 0 && (
+          <View style={s.section}>
+            <Text style={s.sectionTitle}>Conversões por culto</Text>
+            <View style={{ borderRadius: 3, overflow: 'hidden' }}>
+              <View style={s.tableHeader}>
+                <Text style={[s.th, { flex: 3 }]}>Evento / Culto</Text>
+                <Text style={[s.th, { width: 60, textAlign: 'center' }]}>Novo Nasc.</Text>
+                <Text style={[s.th, { width: 55, textAlign: 'center' }]}>Reconcil.</Text>
+                <Text style={[s.th, { width: 50, textAlign: 'center' }]}>Visitante</Text>
+                <Text style={[s.th, { width: 40, textAlign: 'right' }]}>Total</Text>
+              </View>
+              {matrizTipoLocal.map((row, i) => (
+                <View key={row.local} style={i % 2 === 0 ? s.tableRow : s.tableRowAlt}>
+                  <Text style={[s.td, { flex: 3 }]}>{row.local}</Text>
+                  <Text style={[s.td, { width: 60, textAlign: 'center' }]}>{row.novo_nascimento || '—'}</Text>
+                  <Text style={[s.td, { width: 55, textAlign: 'center' }]}>{row.reconciliacao   || '—'}</Text>
+                  <Text style={[s.td, { width: 50, textAlign: 'center' }]}>{row.visitante       || '—'}</Text>
+                  <Text style={[s.td, { width: 40, textAlign: 'right', fontWeight: 'bold' }]}>{row.total}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* 7. Igreja de origem (visitantes) */}
         {porIgrejaOrigem.length > 0 && (
           <View style={s.section}>
             <Text style={s.sectionTitle}>Visitantes por igreja de origem</Text>
