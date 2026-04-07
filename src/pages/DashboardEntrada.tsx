@@ -4,10 +4,27 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Layout } from '@/components/layout/Layout'
 import { TrendingUp } from 'lucide-react'
 import type { ContactTipo, ContactGrupo } from '@/types/database'
+import { LOCAL_OPTIONS } from '@/lib/locaisCulto'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer,
 } from 'recharts'
+
+// Mapa de local → grupo de culto
+const LOCAL_GRUPO_MAP = new Map<string, string>()
+LOCAL_OPTIONS.forEach(g => g.items.forEach(item => LOCAL_GRUPO_MAP.set(item, g.group)))
+
+const LOCAIS_CAMPUS      = new Set(LOCAL_OPTIONS.find(g => g.group === 'Campus Chácara Flora')?.items ?? [])
+const LOCAIS_GERACIONAIS = new Set(LOCAL_OPTIONS.find(g => g.group === 'Cultos por Ministério')?.items ?? [])
+
+type TabMatriz = 'todos' | 'campus' | 'geracionais' | 'outros'
+
+const TABS_MATRIZ: { key: TabMatriz; label: string }[] = [
+  { key: 'todos',       label: 'Todos' },
+  { key: 'campus',      label: 'Campus Flora' },
+  { key: 'geracionais', label: 'Geracionais' },
+  { key: 'outros',      label: 'Outros' },
+]
 
 // ─── Constantes ─────────────────────────────────────────────────────────────
 
@@ -77,6 +94,7 @@ export default function DashboardEntrada() {
   const [loading, setLoading] = useState(true)
   const [dataInicio, setDataInicio] = useState(ha30)
   const [dataFim, setDataFim] = useState(hoje)
+  const [tabMatriz, setTabMatriz] = useState<TabMatriz>('todos')
 
   const carregarDados = useCallback(async () => {
     if (!profile) return
@@ -199,10 +217,19 @@ export default function DashboardEntrada() {
     'Visitante':     row.visitante,
   }))
 
+  // Filtra matriz conforme aba selecionada
+  const matrizFiltrada = dados.matrizTipoLocal.filter(row => {
+    if (tabMatriz === 'todos')       return true
+    if (tabMatriz === 'campus')      return LOCAIS_CAMPUS.has(row.local as any)
+    if (tabMatriz === 'geracionais') return LOCAIS_GERACIONAIS.has(row.local as any)
+    return !LOCAIS_CAMPUS.has(row.local as any) && !LOCAIS_GERACIONAIS.has(row.local as any)
+  })
+
   // Totais da linha de rodapé da matriz
-  const totalNN  = dados.matrizTipoLocal.reduce((a, r) => a + r.novo_nascimento, 0)
-  const totalRec = dados.matrizTipoLocal.reduce((a, r) => a + r.reconciliacao, 0)
-  const totalVis = dados.matrizTipoLocal.reduce((a, r) => a + r.visitante, 0)
+  const totalNN  = matrizFiltrada.reduce((a, r) => a + r.novo_nascimento, 0)
+  const totalRec = matrizFiltrada.reduce((a, r) => a + r.reconciliacao, 0)
+  const totalVis = matrizFiltrada.reduce((a, r) => a + r.visitante, 0)
+  const totalGeral = totalNN + totalRec + totalVis
 
   return (
     <Layout title="Visão de Entrada">
@@ -293,8 +320,25 @@ export default function DashboardEntrada() {
         {dados.matrizTipoLocal.length > 0 && (
           <div className="zion-card p-0 overflow-hidden">
             <div className="px-5 py-4 border-b border-border">
-              <h2 className="text-sm font-medium text-offwhite">Detalhamento por culto</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">Total de cada tipo por evento</p>
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div>
+                  <h2 className="text-sm font-medium text-offwhite">Detalhamento por culto</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">Total de cada tipo por evento</p>
+                </div>
+                {/* Abas de filtro */}
+                <div className="flex gap-1">
+                  {TABS_MATRIZ.map(tab => (
+                    <button key={tab.key} onClick={() => setTabMatriz(tab.key)}
+                      className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
+                        tabMatriz === tab.key
+                          ? 'bg-menta-dark/20 text-menta-light border border-menta-dark/40'
+                          : 'text-muted-foreground hover:text-foreground border border-transparent'
+                      }`}>
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -308,7 +352,7 @@ export default function DashboardEntrada() {
                   </tr>
                 </thead>
                 <tbody>
-                  {dados.matrizTipoLocal.map((row, i) => (
+                  {matrizFiltrada.map((row, i) => (
                     <tr key={row.local} className={`border-t border-border/50 ${i % 2 === 1 ? 'bg-muted/10' : ''}`}>
                       <td className="px-5 py-2.5 text-xs text-offwhite font-medium truncate max-w-[200px]">{row.local}</td>
                       <CellCount value={row.novo_nascimento} color={CORES.novo_nascimento} />
@@ -332,7 +376,7 @@ export default function DashboardEntrada() {
                       <span className="text-sm font-semibold text-offwhite">{totalVis}</span>
                     </td>
                     <td className="px-5 py-2.5 text-right">
-                      <span className="text-sm font-semibold text-menta-light">{dados.totalEntradas}</span>
+                      <span className="text-sm font-semibold text-menta-light">{totalGeral}</span>
                     </td>
                   </tr>
                 </tbody>
