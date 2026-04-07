@@ -17,15 +17,6 @@ LOCAL_OPTIONS.forEach(g => g.items.forEach(item => LOCAL_GRUPO_MAP.set(item, g.g
 const LOCAIS_CAMPUS      = new Set(LOCAL_OPTIONS.find(g => g.group === 'Campus Chácara Flora')?.items ?? [])
 const LOCAIS_GERACIONAIS = new Set(LOCAL_OPTIONS.find(g => g.group === 'Cultos por Ministério')?.items ?? [])
 
-type TabMatriz = 'todos' | 'campus' | 'geracionais' | 'outros'
-
-const TABS_MATRIZ: { key: TabMatriz; label: string }[] = [
-  { key: 'todos',       label: 'Todos' },
-  { key: 'campus',      label: 'Campus Flora' },
-  { key: 'geracionais', label: 'Geracionais' },
-  { key: 'outros',      label: 'Outros' },
-]
-
 // ─── Constantes ─────────────────────────────────────────────────────────────
 
 const hoje = new Date().toISOString().split('T')[0]
@@ -94,8 +85,6 @@ export default function DashboardEntrada() {
   const [loading, setLoading] = useState(true)
   const [dataInicio, setDataInicio] = useState(ha30)
   const [dataFim, setDataFim] = useState(hoje)
-  const [tabMatriz, setTabMatriz] = useState<TabMatriz>('todos')
-
   const carregarDados = useCallback(async () => {
     if (!profile) return
     setLoading(true)
@@ -217,19 +206,8 @@ export default function DashboardEntrada() {
     'Visitante':     row.visitante,
   }))
 
-  // Filtra matriz conforme aba selecionada
-  const matrizFiltrada = dados.matrizTipoLocal.filter(row => {
-    if (tabMatriz === 'todos')       return true
-    if (tabMatriz === 'campus')      return LOCAIS_CAMPUS.has(row.local as any)
-    if (tabMatriz === 'geracionais') return LOCAIS_GERACIONAIS.has(row.local as any)
-    return !LOCAIS_CAMPUS.has(row.local as any) && !LOCAIS_GERACIONAIS.has(row.local as any)
-  })
-
-  // Totais da linha de rodapé da matriz
-  const totalNN  = matrizFiltrada.reduce((a, r) => a + r.novo_nascimento, 0)
-  const totalRec = matrizFiltrada.reduce((a, r) => a + r.reconciliacao, 0)
-  const totalVis = matrizFiltrada.reduce((a, r) => a + r.visitante, 0)
-  const totalGeral = totalNN + totalRec + totalVis
+  const matrizCampus      = dados.matrizTipoLocal.filter(r => LOCAIS_CAMPUS.has(r.local as any))
+  const matrizGeracionais = dados.matrizTipoLocal.filter(r => LOCAIS_GERACIONAIS.has(r.local as any))
 
   return (
     <Layout title="Visão de Entrada">
@@ -316,72 +294,34 @@ export default function DashboardEntrada() {
           </div>
         )}
 
-        {/* Tabela matricial tipo × local */}
+        {/* Tabela consolidada — todos os cultos */}
         {dados.matrizTipoLocal.length > 0 && (
-          <div className="zion-card p-0 overflow-hidden">
-            <div className="px-5 py-4 border-b border-border">
-              <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div>
-                  <h2 className="text-sm font-medium text-offwhite">Detalhamento por culto</h2>
-                  <p className="text-xs text-muted-foreground mt-0.5">Total de cada tipo por evento</p>
-                </div>
-                {/* Abas de filtro */}
-                <div className="flex gap-1">
-                  {TABS_MATRIZ.map(tab => (
-                    <button key={tab.key} onClick={() => setTabMatriz(tab.key)}
-                      className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
-                        tabMatriz === tab.key
-                          ? 'bg-menta-dark/20 text-menta-light border border-menta-dark/40'
-                          : 'text-muted-foreground hover:text-foreground border border-transparent'
-                      }`}>
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-petroleo/60">
-                    <th className="text-left text-xs text-muted-foreground font-medium px-5 py-3">Evento / Culto</th>
-                    <th className="text-center text-xs font-medium px-4 py-3" style={{ color: CORES.novo_nascimento }}>Novo Nasc.</th>
-                    <th className="text-center text-xs font-medium px-4 py-3" style={{ color: CORES.reconciliacao }}>Reconcil.</th>
-                    <th className="text-center text-xs font-medium px-4 py-3" style={{ color: CORES.visitante }}>Visitante</th>
-                    <th className="text-right text-xs text-muted-foreground font-medium px-5 py-3">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {matrizFiltrada.map((row, i) => (
-                    <tr key={row.local} className={`border-t border-border/50 ${i % 2 === 1 ? 'bg-muted/10' : ''}`}>
-                      <td className="px-5 py-2.5 text-xs text-offwhite font-medium truncate max-w-[200px]">{row.local}</td>
-                      <CellCount value={row.novo_nascimento} color={CORES.novo_nascimento} />
-                      <CellCount value={row.reconciliacao}   color={CORES.reconciliacao}   />
-                      <CellCount value={row.visitante}       color={CORES.visitante}        />
-                      <td className="px-5 py-2.5 text-right">
-                        <span className="text-sm font-semibold text-offwhite">{row.total}</span>
-                      </td>
-                    </tr>
-                  ))}
-                  {/* Linha de totais */}
-                  <tr className="border-t border-border bg-petroleo/60">
-                    <td className="px-5 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Total geral</td>
-                    <td className="px-4 py-2.5 text-center">
-                      <span className="text-sm font-semibold text-offwhite">{totalNN}</span>
-                    </td>
-                    <td className="px-4 py-2.5 text-center">
-                      <span className="text-sm font-semibold text-offwhite">{totalRec}</span>
-                    </td>
-                    <td className="px-4 py-2.5 text-center">
-                      <span className="text-sm font-semibold text-offwhite">{totalVis}</span>
-                    </td>
-                    <td className="px-5 py-2.5 text-right">
-                      <span className="text-sm font-semibold text-menta-light">{totalGeral}</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+          <MatrizCulto
+            titulo="Consolidado"
+            descricao="Todos os cultos e eventos do período"
+            rows={dados.matrizTipoLocal}
+          />
+        )}
+
+        {/* Campus Flora + Geracionais lado a lado */}
+        {(matrizCampus.length > 0 || matrizGeracionais.length > 0) && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {matrizCampus.length > 0 && (
+              <MatrizCulto
+                titulo="Campus Chácara Flora"
+                descricao="Cultos presenciais do Campus"
+                rows={matrizCampus}
+                compact
+              />
+            )}
+            {matrizGeracionais.length > 0 && (
+              <MatrizCulto
+                titulo="Cultos Geracionais"
+                descricao="Rise · Flow · Vox · Eklektos · Diamantes"
+                rows={matrizGeracionais}
+                compact
+              />
+            )}
           </div>
         )}
 
@@ -473,7 +413,62 @@ export default function DashboardEntrada() {
   )
 }
 
-// ─── Sub-componente ──────────────────────────────────────────────────────────
+// ─── Sub-componentes ─────────────────────────────────────────────────────────
+
+function MatrizCulto({ titulo, descricao, rows, compact }: {
+  titulo: string
+  descricao: string
+  rows: MatrizRow[]
+  compact?: boolean
+}) {
+  const totalNN  = rows.reduce((a, r) => a + r.novo_nascimento, 0)
+  const totalRec = rows.reduce((a, r) => a + r.reconciliacao, 0)
+  const totalVis = rows.reduce((a, r) => a + r.visitante, 0)
+  const total    = totalNN + totalRec + totalVis
+  const px = compact ? 'px-3' : 'px-5'
+
+  return (
+    <div className="zion-card p-0 overflow-hidden">
+      <div className={`${px} py-3 border-b border-border`}>
+        <h2 className="text-sm font-medium text-offwhite">{titulo}</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">{descricao}</p>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-petroleo/60">
+              <th className={`text-left text-xs text-muted-foreground font-medium ${px} py-2.5`}>Culto</th>
+              <th className="text-center text-xs font-medium px-3 py-2.5" style={{ color: CORES.novo_nascimento }}>NN</th>
+              <th className="text-center text-xs font-medium px-3 py-2.5" style={{ color: CORES.reconciliacao }}>Rec.</th>
+              <th className="text-center text-xs font-medium px-3 py-2.5" style={{ color: CORES.visitante }}>Vis.</th>
+              <th className={`text-right text-xs text-muted-foreground font-medium ${px} py-2.5`}>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <tr key={row.local} className={`border-t border-border/50 ${i % 2 === 1 ? 'bg-muted/10' : ''}`}>
+                <td className={`${px} py-2 text-xs text-offwhite font-medium truncate max-w-[160px]`}>{row.local}</td>
+                <CellCount value={row.novo_nascimento} color={CORES.novo_nascimento} />
+                <CellCount value={row.reconciliacao}   color={CORES.reconciliacao}   />
+                <CellCount value={row.visitante}       color={CORES.visitante}        />
+                <td className={`${px} py-2 text-right`}>
+                  <span className="text-sm font-semibold text-offwhite">{row.total}</span>
+                </td>
+              </tr>
+            ))}
+            <tr className="border-t border-border bg-petroleo/60">
+              <td className={`${px} py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide`}>Total</td>
+              <td className="px-3 py-2 text-center"><span className="text-sm font-semibold text-offwhite">{totalNN}</span></td>
+              <td className="px-3 py-2 text-center"><span className="text-sm font-semibold text-offwhite">{totalRec}</span></td>
+              <td className="px-3 py-2 text-center"><span className="text-sm font-semibold text-offwhite">{totalVis}</span></td>
+              <td className={`${px} py-2 text-right`}><span className="text-sm font-semibold text-menta-light">{total}</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
 
 function CellCount({ value, color }: { value: number; color: string }) {
   return (
