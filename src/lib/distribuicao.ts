@@ -143,6 +143,10 @@ export async function distribuirLead(contactId: string): Promise<ResultadoDistri
   }
 
   if (resultado.tipo_atribuicao === 'AUTOMATICA') {
+    // Marca atribuição como feita pelo coordenador/sistema
+    await supabase.from('contacts')
+      .update({ atribuido_por_coordenador: true })
+      .eq('id', contactId)
     return {
       sucesso: true,
       voluntarioId: resultado.voluntario_id,
@@ -196,6 +200,7 @@ export async function redistribuirLead(
     .from('contacts')
     .update({
       voluntario_atribuido_id: novoVoluntarioId,
+      atribuido_por_coordenador: true,
       data_distribuicao: new Date().toISOString(),
       sla_status: 'ok',
       posicao_fila: null,

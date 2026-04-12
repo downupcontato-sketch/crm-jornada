@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, Users, Phone } from 'lucide-react'
+import { AlertTriangle, Users, Phone, AlertCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { Layout } from '@/components/layout/Layout'
@@ -41,6 +41,24 @@ export default function DashboardCoordenador() {
         .eq('nivel', 'voluntario')
         .eq('ativo', true)
       if (error) throw error
+      return data ?? []
+    },
+    enabled: !!grupo,
+    refetchInterval: 60000,
+  })
+
+  // Contatos com voluntário atribuído mas sem confirmação do coordenador
+  const { data: semConfirmacao = [] } = useQuery({
+    queryKey: ['coordenador-sem-confirmacao', grupo],
+    queryFn: async () => {
+      if (!grupo) return []
+      const { data } = await supabase
+        .from('contacts')
+        .select('id')
+        .eq('grupo', grupo)
+        .eq('status', 'ativo')
+        .not('voluntario_atribuido_id', 'is', null)
+        .eq('atribuido_por_coordenador', false)
       return data ?? []
     },
     enabled: !!grupo,
@@ -109,6 +127,20 @@ export default function DashboardCoordenador() {
             <strong>{pendentesLdf.length}</strong> membro{pendentesLdf.length > 1 ? 's' : ''} da Linha de Frente aguardando aprovação.{' '}
             <Link to="/usuarios" className="underline hover:text-yellow-300 transition-colors">
               Gerenciar usuários
+            </Link>
+          </span>
+        </div>
+      )}
+
+      {/* Aviso: atribuições não confirmadas */}
+      {semConfirmacao.length > 0 && (
+        <div className="flex items-start gap-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-4 py-3 mb-4 text-sm text-yellow-400">
+          <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+          <span>
+            <strong>{semConfirmacao.length}</strong> contato{semConfirmacao.length > 1 ? 's' : ''} com atribuição pendente de confirmação.{' '}
+            Esses leads vieram de importação e precisam ser revisados para que o voluntário possa vê-los.{' '}
+            <Link to="/gestao-leads" className="underline hover:text-yellow-300 transition-colors">
+              Revisar na Gestão de Leads →
             </Link>
           </span>
         </div>

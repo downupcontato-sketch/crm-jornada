@@ -66,6 +66,7 @@ export function DrawerEdicaoLead({ contact, onClose, onSaved }: Props) {
   })
 
   async function onSubmit(data: F) {
+    const mudouVoluntario = data.voluntario_atribuido_id && data.voluntario_atribuido_id !== contact.voluntario_atribuido_id
     const payload = {
       nome: data.nome,
       telefone: data.telefone,
@@ -74,6 +75,7 @@ export function DrawerEdicaoLead({ contact, onClose, onSaved }: Props) {
       status: data.status as ContactStatus,
       grupo: data.grupo as ContactGrupo,
       voluntario_atribuido_id: data.voluntario_atribuido_id ?? null,
+      ...(mudouVoluntario ? { atribuido_por_coordenador: true } : {}),
       observacoes: data.observacoes || null,
     }
     const { error } = await supabase.from('contacts').update(payload).eq('id', contact.id)

@@ -104,6 +104,7 @@ export function PipelineVoluntario() {
         .select('fase_pipeline, subetapa_contato, subetapa_qualificacao, subetapa_encaminhamento, subetapa_batismo')
         .in('fase_pipeline', FASES_ATIVAS)
         .eq('voluntario_atribuido_id', profile.id)
+        .eq('atribuido_por_coordenador', true)
       return data ?? []
     },
     enabled: !!profile,
@@ -141,6 +142,7 @@ export function PipelineVoluntario() {
         .select('*', { count: 'exact' })
         .eq('fase_pipeline', fase)
         .eq('voluntario_atribuido_id', profile.id)
+        .eq('atribuido_por_coordenador', true)
         .order('updated_at', { ascending: true })
         .range(from, from + PER_PAGE - 1)
       q = applySubetapaFilter(q, fase, effectiveSub) as typeof q

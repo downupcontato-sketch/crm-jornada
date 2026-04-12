@@ -132,7 +132,7 @@ export default function GestaoLeads() {
   async function bulkReatribuir() {
     if (!bulkVoluntario) return
     const ids = Array.from(selecionados)
-    const { error } = await supabase.from('contacts').update({ voluntario_atribuido_id: bulkVoluntario }).in('id', ids)
+    const { error } = await supabase.from('contacts').update({ voluntario_atribuido_id: bulkVoluntario, atribuido_por_coordenador: true }).in('id', ids)
     if (error) { toast.error('Erro ao reatribuir.'); return }
     // Registra atribuições
     await supabase.from('atribuicoes').insert(ids.map(contact_id => ({
@@ -212,6 +212,7 @@ export default function GestaoLeads() {
       etapa_atual: 3,
       captador_id: profile?.id ?? null,
       voluntario_atribuido_id: voluntarioId || null,
+      atribuido_por_coordenador: !!voluntarioId,
       fase_pipeline: fase as any,
       subetapa_contato: fase === 'CONTATO_INICIAL' ? 'TENTATIVA_1' : null,
     }).eq('id', contact.id)

@@ -94,6 +94,7 @@ export interface Contact {
   etapa_atual: number
   etapa_anterior: number | null
   voluntario_atribuido_id: string | null
+  atribuido_por_coordenador: boolean
   data_distribuicao: string | null
   data_primeiro_contato: string | null
   sla_status: SlaStatus
