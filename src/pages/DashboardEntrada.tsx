@@ -112,7 +112,7 @@ export default function DashboardEntrada() {
 
     // Por sexo
     const sexoMap = new Map<string, number>()
-    cs.forEach(c => { const s = (c as any).sexo ?? 'NAO_INFORMADO'; sexoMap.set(s, (sexoMap.get(s) ?? 0) + 1) })
+    cs.forEach(c => { const s = (c as any).sexo ?? 'NAO_INFORMADO'; if (s !== 'NAO_INFORMADO') sexoMap.set(s, (sexoMap.get(s) ?? 0) + 1) })
     const porSexo = [...sexoMap.entries()].map(([sexo, count]) => ({ sexo, count }))
 
     // Matriz tipo × local

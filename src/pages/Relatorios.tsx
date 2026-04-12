@@ -96,7 +96,7 @@ export default function Relatorios() {
 
       // — Por sexo
       const sexoMap = new Map<string, number>()
-      cs.forEach((c: any) => { const s = c.sexo ?? 'NAO_INFORMADO'; sexoMap.set(s, (sexoMap.get(s) ?? 0) + 1) })
+      cs.forEach((c: any) => { const s = c.sexo; if (s) sexoMap.set(s, (sexoMap.get(s) ?? 0) + 1) })
       const porSexo = [...sexoMap.entries()].map(([sexo, count]) => ({ sexo, count }))
 
       // — Matriz tipo × local

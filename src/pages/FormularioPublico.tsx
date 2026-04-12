@@ -152,7 +152,7 @@ export default function FormularioPublico() {
         idade,
         local_culto:        form.localCulto,
         culto_captacao:     form.dataEntrada,
-        sexo:               form.sexo || 'NAO_INFORMADO',
+        sexo:               form.sexo || null,
         subtipo_visitante:  subtipo,
         possui_igreja_local: subtipo === 'COM_IGREJA' ? true : subtipo === 'SEM_IGREJA' ? false : null,
         igreja_local_nome:  subtipo === 'COM_IGREJA' && form.igrejaLocalNome.trim()
