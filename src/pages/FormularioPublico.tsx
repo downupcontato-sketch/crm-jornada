@@ -3,6 +3,7 @@ import { CheckCircle, ChevronLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { calcularGrupo } from '@/lib/calcularGrupo'
 import { LOCAL_OPTIONS } from '@/lib/locaisCulto'
+import { DEFAULT_CHURCH_ID } from '@/lib/constants/church'
 import type { ContactTipo, SubtipoVisitante } from '@/types/database'
 
 // ─── Tipos internos ─────────────────────────────────────────────────────────
@@ -152,6 +153,7 @@ export default function FormularioPublico() {
         idade,
         local_culto:        form.localCulto,
         culto_captacao:     form.dataEntrada,
+        church_id:          DEFAULT_CHURCH_ID,
         sexo:               form.sexo || null,
         subtipo_visitante:  subtipo,
         possui_igreja_local: subtipo === 'COM_IGREJA' ? true : subtipo === 'SEM_IGREJA' ? false : null,

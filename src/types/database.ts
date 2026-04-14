@@ -41,6 +41,7 @@ export type MotivoPerdaLead =
 
 export interface Profile {
   id: string
+  church_id: string
   nome: string
   email: string
   telefone: string | null
@@ -74,6 +75,7 @@ export interface PipelineStage {
 
 export interface Contact {
   id: string
+  church_id: string
   nome: string
   telefone: string
   whatsapp_valido: boolean

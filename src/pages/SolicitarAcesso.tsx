@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { Eye, EyeOff, UserPlus } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
+import { DEFAULT_CHURCH_ID } from '@/lib/constants/church'
 
 const schema = z.object({
   nome: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
@@ -49,6 +50,7 @@ export default function SolicitarAcesso() {
         grupo: data.grupo,
         status: 'pendente',
         ativo: false,
+        church_id: DEFAULT_CHURCH_ID,
       }).eq('id', authData.user.id)
 
       if (profileError) throw profileError

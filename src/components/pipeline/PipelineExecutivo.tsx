@@ -17,14 +17,16 @@ export function PipelineExecutivo() {
   const { profile, canSeeAllContacts } = useAuth()
   const qc = useQueryClient()
   const [grupoFiltro, setGrupoFiltro] = useState<ContactGrupo | 'todos'>('todos')
+  const [mostrarInativos, setMostrarInativos] = useState(false)
   const [drillFase, setDrillFase] = useState<FasePipeline | null>(null)
   const [drawerContact, setDrawerContact] = useState<Contact | null>(null)
 
   const { data: contacts = [], isLoading, error } = useQuery({
-    queryKey: ['pipeline-exec', grupoFiltro],
+    queryKey: ['pipeline-exec', grupoFiltro, mostrarInativos],
     queryFn: async () => {
       let q = supabase.from('contacts').select('*')
         .in('fase_pipeline', FASES_ATIVAS)
+        .in('status', mostrarInativos ? ['ativo', 'inativo'] : ['ativo'])
         .order('updated_at', { ascending: true })
       if (grupoFiltro !== 'todos') q = q.eq('grupo', grupoFiltro)
       else if (!canSeeAllContacts && profile?.grupo) q = q.eq('grupo', profile.grupo)
@@ -35,7 +37,7 @@ export function PipelineExecutivo() {
   })
 
   function handleUpdated(id: string, upd: Partial<Contact>) {
-    qc.setQueryData(['pipeline-exec', grupoFiltro], (old: Contact[] | undefined) =>
+    qc.setQueryData(['pipeline-exec', grupoFiltro, mostrarInativos], (old: Contact[] | undefined) =>
       old?.map(c => c.id === id ? { ...c, ...upd } : c) ?? []
     )
     if (drawerContact?.id === id) setDrawerContact(c => c ? { ...c, ...upd } : c)
@@ -56,21 +58,28 @@ export function PipelineExecutivo() {
 
   return (
     <div>
-      {/* Filtro de grupo */}
-      {canSeeAllContacts && (
-        <div className="flex gap-1.5 flex-wrap mb-5">
-          {(['todos', ...GRUPOS] as const).map(g => (
-            <button key={g} onClick={() => setGrupoFiltro(g)}
-              className={cn('text-xs px-3 py-1.5 rounded-lg border transition-all font-medium',
-                grupoFiltro === g
-                  ? 'bg-menta-light/15 border-menta-light/40 text-menta-light'
-                  : 'border-border text-muted-foreground hover:text-foreground'
-              )}>
-              {g === 'todos' ? 'Todos' : getGrupoLabel(g)}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Filtros */}
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-5">
+        {canSeeAllContacts && (
+          <div className="flex gap-1.5 flex-wrap">
+            {(['todos', ...GRUPOS] as const).map(g => (
+              <button key={g} onClick={() => setGrupoFiltro(g)}
+                className={cn('text-xs px-3 py-1.5 rounded-lg border transition-all font-medium',
+                  grupoFiltro === g
+                    ? 'bg-menta-light/15 border-menta-light/40 text-menta-light'
+                    : 'border-border text-muted-foreground hover:text-foreground'
+                )}>
+                {g === 'todos' ? 'Todos' : getGrupoLabel(g)}
+              </button>
+            ))}
+          </div>
+        )}
+        <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer ml-auto">
+          <input type="checkbox" checked={mostrarInativos} onChange={e => setMostrarInativos(e.target.checked)}
+            className="rounded border-border" />
+          Mostrar inativos
+        </label>
+      </div>
 
       {/* KPI Row */}
       {!isLoading && !error && (
