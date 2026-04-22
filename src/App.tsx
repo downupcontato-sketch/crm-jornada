@@ -22,6 +22,7 @@ import Relatorios from '@/pages/Relatorios'
 import DashboardEntrada from '@/pages/DashboardEntrada'
 import EsqueciSenha from '@/pages/EsqueciSenha'
 import ResetPassword from '@/pages/ResetPassword'
+import AcessoNegado from '@/pages/AcessoNegado'
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30000, retry: 1 } } })
 
@@ -40,18 +41,18 @@ export default function App() {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/cadastro" element={<ProtectedRoute><Cadastro /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['admin','lider']}><Dashboard /></ProtectedRoute>} />
-            <Route path="/pipeline" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador','voluntario','linha_de_frente']}><Pipeline /></ProtectedRoute>} />
+            <Route path="/pipeline" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador','linha_de_frente']}><Pipeline /></ProtectedRoute>} />
             <Route path="/meus-contatos" element={<ProtectedRoute allowedRoles={['voluntario']}><MeusContatos /></ProtectedRoute>} />
-            <Route path="/contato/:id" element={<ProtectedRoute><ContatoDetail /></ProtectedRoute>} />
+            <Route path="/contato/:id" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador','voluntario','linha_de_frente']}><ContatoDetail /></ProtectedRoute>} />
             <Route path="/equipe" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador']}><Equipe /></ProtectedRoute>} />
             <Route path="/usuarios" element={<ProtectedRoute allowedRoles={['admin','coordenador']}><Usuarios /></ProtectedRoute>} />
             <Route path="/importacao" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador']}><Importacao /></ProtectedRoute>} />
             <Route path="/gestao/leads" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador']}><GestaoLeads /></ProtectedRoute>} />
-            <Route path="/culto" element={<ProtectedRoute allowedRoles={['linha_de_frente','admin']}><Culto /></ProtectedRoute>} />
-            <Route path="/dashboard/coordenador" element={<ProtectedRoute allowedRoles={['coordenador','admin']}><DashboardCoordenador /></ProtectedRoute>} />
+            <Route path="/culto" element={<ProtectedRoute allowedRoles={['linha_de_frente','admin','lider']}><Culto /></ProtectedRoute>} />
+            <Route path="/dashboard/coordenador" element={<ProtectedRoute allowedRoles={['coordenador','admin','lider']}><DashboardCoordenador /></ProtectedRoute>} />
             <Route path="/relatorios" element={<ProtectedRoute allowedRoles={['admin','lider']}><Relatorios /></ProtectedRoute>} />
             <Route path="/dashboard/entrada" element={<ProtectedRoute allowedRoles={['admin','lider']}><DashboardEntrada /></ProtectedRoute>} />
-            <Route path="/acesso-negado" element={<div className="min-h-screen bg-petroleo flex items-center justify-center text-center px-4"><div><h1 className="text-2xl font-semibold text-offwhite mb-2">Acesso Negado</h1><p className="text-muted-foreground">Você não tem permissão para acessar esta página.</p></div></div>} />
+            <Route path="/acesso-negado" element={<AcessoNegado />} />
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </BrowserRouter>

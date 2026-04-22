@@ -20,11 +20,16 @@ function getRedirectPath(nivel: string | null, status: string | undefined): stri
 }
 
 export default function Login() {
-  const { user, signIn, nivel, profile } = useAuth()
+  const { user, signIn, nivel, profile, loading: authLoading } = useAuth()
   const [show, setShow] = useState(false)
   const [loading, setLoading] = useState(false)
   const { register, handleSubmit, formState: { errors } } = useForm<F>({ resolver: zodResolver(schema) })
 
+  if (authLoading) return (
+    <div className="min-h-screen bg-petroleo flex items-center justify-center">
+      <div className="w-10 h-10 rounded-full border-2 border-menta-light border-t-transparent animate-spin" />
+    </div>
+  )
   if (user) return <Navigate to={getRedirectPath(nivel, profile?.status)} replace />
 
   async function onSubmit(d: F) {

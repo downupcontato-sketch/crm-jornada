@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Users, GitMerge, UserPlus, Settings, LogOut, Menu, X, Upload, ListFilter, BarChart2, TrendingUp } from 'lucide-react'
+import { LayoutDashboard, Users, GitMerge, UserPlus, Settings, LogOut, Menu, X, Upload, ListFilter, BarChart2, TrendingUp, Church } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useBadges } from '@/hooks/useBadges'
@@ -9,8 +9,9 @@ import { NotificacoesDropdown } from './NotificacoesDropdown'
 const navItems = [
   { to: '/dashboard',           icon: <LayoutDashboard size={20} />, label: 'Dashboard',      roles: ['admin', 'lider'] },
   { to: '/dashboard/coordenador', icon: <LayoutDashboard size={20} />, label: 'Dashboard',    roles: ['coordenador'] },
-  { to: '/pipeline',            icon: <GitMerge size={20} />,        label: 'Pipeline',       roles: ['admin', 'lider', 'coordenador'] },
+  { to: '/pipeline',            icon: <GitMerge size={20} />,        label: 'Pipeline',       roles: ['admin', 'lider', 'coordenador', 'linha_de_frente'] },
   { to: '/meus-contatos',       icon: <Users size={20} />,           label: 'Meus Contatos',  roles: ['voluntario'] },
+  { to: '/culto',               icon: <Church size={20} />,          label: 'Registro de Culto', roles: ['linha_de_frente', 'admin', 'lider'] },
   { to: '/cadastro',            icon: <UserPlus size={20} />,        label: 'Novo Cadastro',  roles: ['admin', 'lider', 'coordenador', 'voluntario', 'linha_de_frente'] },
   { to: '/equipe',              icon: <Users size={20} />,           label: 'Minha Equipe',   roles: ['coordenador', 'admin', 'lider'] },
   { to: '/gestao/leads',        icon: <ListFilter size={20} />,      label: 'Gestão de Leads',roles: ['admin', 'lider', 'coordenador'] },
