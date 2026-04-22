@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn, formatPhone, getGrupoLabel, getTipoLabel, getTipoBadgeColor } from '@/lib/utils'
 import {
-  avancarSubetapa, ativarTrilhaBatismo, calcularFrequencia, calcularSLAFase,
+  avancarSubetapa, pularParaConversa, ativarTrilhaBatismo, calcularFrequencia, calcularSLAFase,
   proximaSubetapaLabel, trilhaProgresso, FASE_LABELS,
 } from '@/lib/pipeline'
 import { ModalPerda } from './ModalPerda'
@@ -74,6 +74,23 @@ export function DrawerLead({ contact: initial, onClose, onUpdated }: Props) {
     }
   }
 
+  async function handleConversa() {
+    if (!profile) return
+    setAdvancing(true)
+    try {
+      const upd = await pularParaConversa(contact, profile.id)
+      const novo = { ...contact, ...upd }
+      setContact(novo as Contact)
+      onUpdated(upd)
+      qc.invalidateQueries({ queryKey: ['lead-historico', contact.id] })
+      toast.success('Avançado para Conversa!')
+    } catch {
+      toast.error('Erro ao avançar etapa')
+    } finally {
+      setAdvancing(false)
+    }
+  }
+
   async function handleBatismo() {
     if (!profile) return
     try {
@@ -113,8 +130,29 @@ export function DrawerLead({ contact: initial, onClose, onUpdated }: Props) {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {/* Botão Avançar */}
-          {podeAvancar && (
+          {/* Botões de ação */}
+          {contact.fase_pipeline === 'CONTATO_INICIAL' ? (
+            <div className="px-5 pt-4 flex gap-2">
+              <button
+                onClick={contact.subetapa_contato === 'TENTATIVA_3' ? () => setShowPerda(true) : handleAvancar}
+                disabled={advancing}
+                className="flex-1 py-3 rounded-lg text-sm font-medium border border-border text-muted-foreground hover:text-offwhite hover:border-foreground/30 transition-all"
+              >
+                {advancing ? (
+                  <div className="w-4 h-4 border-2 border-border border-t-transparent rounded-full animate-spin mx-auto"/>
+                ) : 'Não atendeu'}
+              </button>
+              <button
+                onClick={handleConversa}
+                disabled={advancing}
+                className="flex-1 zion-btn-primary py-3 text-sm"
+              >
+                {advancing ? (
+                  <div className="w-4 h-4 border-2 border-petroleo border-t-transparent rounded-full animate-spin mx-auto"/>
+                ) : 'Conseguiu conversar ✓'}
+              </button>
+            </div>
+          ) : podeAvancar && (
             <div className="px-5 pt-4">
               <button
                 onClick={handleAvancar}
@@ -124,7 +162,7 @@ export function DrawerLead({ contact: initial, onClose, onUpdated }: Props) {
                 {advancing ? (
                   <div className="w-4 h-4 border-2 border-petroleo border-t-transparent rounded-full animate-spin"/>
                 ) : (
-                  <><ChevronRight size={16}/>{proximaSubetapaLabel(contact)}</>
+                  <><ChevronRight size={16}/>Avançar para: {proximaSubetapaLabel(contact)}</>
                 )}
               </button>
             </div>

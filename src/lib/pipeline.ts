@@ -225,6 +225,23 @@ export async function avancarSubetapa(c: Contact, userId: string): Promise<Parti
   return upd
 }
 
+export async function pularParaConversa(c: Contact, userId: string): Promise<Partial<Contact>> {
+  const upd: Partial<Contact> = {
+    fase_pipeline: 'QUALIFICACAO',
+    subetapa_contato: null,
+    subetapa_qualificacao: 'CONVERSA',
+  }
+  const { error } = await supabase.from('contacts').update(upd).eq('id', c.id)
+  if (error) throw error
+  await supabase.from('lead_historico').insert({
+    contact_id: c.id, user_id: userId, tipo: 'AVANCO_ETAPA',
+    descricao: 'Conseguiu conversar — avançou direto para Qualificação/Conversa',
+    dados_antes: { fase: c.fase_pipeline, subetapa: c.subetapa_contato },
+    dados_depois: upd,
+  })
+  return upd
+}
+
 // ─── Registrar presença em aula ──────────────────────────────────────────────
 
 export async function registrarPresenca(c: Contact, aula: 1|2|3|4, presente: boolean, userId: string): Promise<void> {
