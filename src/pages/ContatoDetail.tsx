@@ -18,6 +18,7 @@ export default function ContatoDetail() {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [showModal, setShowModal] = useState(false)
+  const [waSent, setWaSent] = useState(false)
 
   const { data: contact, isLoading } = useQuery({
     queryKey: ['contact', id],
@@ -44,6 +45,40 @@ export default function ContatoDetail() {
   })
 
   const contactStage = stages?.find(s => s.ordem === contact?.etapa_atual) ?? null
+
+  async function handleWhatsApp() {
+    if (!contact) return
+    const waUrl = `https://wa.me/55${contact.telefone.replace(/\D/g, '')}`
+    window.open(waUrl, '_blank')
+    try {
+      const agora = new Date().toISOString()
+      const upd: Record<string, unknown> = {
+        tentativas_contato: (contact.tentativas_contato ?? 0) + 1,
+        updated_at: agora,
+      }
+      if (!contact.data_primeiro_contato) {
+        upd.data_primeiro_contato = agora
+        upd.sla_status = 'ok'
+      }
+      await supabase.from('interactions').insert({
+        contact_id: contact.id,
+        voluntario_id: (await supabase.auth.getUser()).data.user?.id,
+        tipo: 'whatsapp',
+        resultado: 'nao_atendeu',
+        observacao: 'Tentativa via botão WhatsApp',
+        etapa_antes: contact.etapa_atual,
+        etapa_depois: null,
+      })
+      await supabase.from('contacts').update(upd).eq('id', contact.id)
+      qc.invalidateQueries({ queryKey: ['contact', id] })
+      qc.invalidateQueries({ queryKey: ['interactions', id] })
+      setWaSent(true)
+      setTimeout(() => setWaSent(false), 60000)
+      toast.success('Tentativa registrada!')
+    } catch {
+      toast.error('Erro ao registrar tentativa')
+    }
+  }
 
   async function handleMarcarInativo() {
     if (!contact) return
@@ -99,14 +134,17 @@ export default function ContatoDetail() {
             {contact.posicao_fila != null && <InfoRow icon={<Clock size={14}/>} label="Posição na Fila" value={`#${contact.posicao_fila}`}/>}
           </div>
           <div className="flex gap-2">
-            <a
-              href={`https://wa.me/55${contact.telefone.replace(/\D/g,'')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1 flex items-center justify-center gap-2 text-sm font-medium text-emerald-400 hover:text-emerald-300 bg-emerald-400/10 hover:bg-emerald-400/20 border border-emerald-400/30 px-4 py-2.5 rounded-lg transition-all"
+            <button
+              onClick={handleWhatsApp}
+              className={cn(
+                'flex-1 flex items-center justify-center gap-2 text-sm font-medium border px-4 py-2.5 rounded-lg transition-all',
+                waSent
+                  ? 'text-emerald-300 bg-emerald-400/20 border-emerald-400/50'
+                  : 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30 hover:bg-emerald-400/20'
+              )}
             >
-              <Phone size={15}/>WhatsApp
-            </a>
+              <Phone size={15}/>{waSent ? '✓ Enviado' : 'WhatsApp'}
+            </button>
             <button onClick={()=>setShowModal(true)} className="flex-1 zion-btn-primary flex items-center justify-center gap-2">
               <MessageSquare size={15}/>Registrar
             </button>

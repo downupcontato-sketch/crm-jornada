@@ -35,6 +35,7 @@ export function DrawerLead({ contact: initial, onClose, onUpdated }: Props) {
   const [contact, setContact] = useState(initial)
   const [advancing, setAdvancing] = useState(false)
   const [showPerda, setShowPerda] = useState(false)
+  const [waSent, setWaSent] = useState(false)
 
   const sla = calcularSLAFase(contact)
   const freq = calcularFrequencia(contact)
@@ -88,6 +89,42 @@ export function DrawerLead({ contact: initial, onClose, onUpdated }: Props) {
       toast.error('Erro ao avançar etapa')
     } finally {
       setAdvancing(false)
+    }
+  }
+
+  async function handleWhatsApp() {
+    const waUrl = `https://wa.me/55${contact.telefone.replace(/\D/g, '')}`
+    window.open(waUrl, '_blank')
+    if (!profile) return
+    try {
+      const agora = new Date().toISOString()
+      const upd: Partial<Contact> = {
+        tentativas_contato: (contact.tentativas_contato ?? 0) + 1,
+        updated_at: agora,
+      }
+      if (!contact.data_primeiro_contato) {
+        upd.data_primeiro_contato = agora
+        upd.sla_status = 'ok'
+      }
+      await supabase.from('interactions').insert({
+        contact_id: contact.id,
+        voluntario_id: profile.id,
+        tipo: 'whatsapp',
+        resultado: 'nao_atendeu',
+        observacao: 'Tentativa via botão WhatsApp',
+        etapa_antes: contact.etapa_atual,
+        etapa_depois: null,
+      })
+      await supabase.from('contacts').update(upd).eq('id', contact.id)
+      const novo = { ...contact, ...upd }
+      setContact(novo as Contact)
+      onUpdated(upd)
+      qc.invalidateQueries({ queryKey: ['lead-historico', contact.id] })
+      setWaSent(true)
+      setTimeout(() => setWaSent(false), 60000)
+      toast.success('Tentativa registrada!')
+    } catch {
+      toast.error('Erro ao registrar tentativa')
     }
   }
 
@@ -256,14 +293,18 @@ export function DrawerLead({ contact: initial, onClose, onUpdated }: Props) {
 
           {/* WhatsApp */}
           <div className="px-5 pt-4">
-            <a
-              href={`https://wa.me/55${contact.telefone.replace(/\D/g,'')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-sm font-medium text-emerald-400 bg-emerald-400/10 border border-emerald-400/30 hover:bg-emerald-400/20 transition-all"
+            <button
+              onClick={handleWhatsApp}
+              className={cn(
+                'flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-sm font-medium border transition-all',
+                waSent
+                  ? 'text-emerald-300 bg-emerald-400/20 border-emerald-400/50'
+                  : 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30 hover:bg-emerald-400/20'
+              )}
             >
-              <Phone size={14}/>Abrir WhatsApp
-            </a>
+              <Phone size={14}/>
+              {waSent ? '✓ WhatsApp enviado — tentativa registrada' : 'Abrir WhatsApp'}
+            </button>
           </div>
 
           {/* Histórico */}
