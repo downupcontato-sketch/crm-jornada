@@ -13,12 +13,14 @@ export default function Dashboard() {
   const { data: stats, isLoading } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
-      const { data: all } = await supabase.from('contacts').select('id,tipo,grupo,status,sla_status,etapa_atual,data_distribuicao,data_primeiro_contato,created_at,updated_at')
+      const { data: all } = await supabase.from('contacts')
+        .select('id,tipo,grupo,status,sla_status,etapa_atual,data_distribuicao,data_primeiro_contato,created_at,updated_at')
+        .not('status', 'in', '("inativo","arquivado","encaminhado")')
       const contacts = all ?? []
       const ativos = contacts.filter(c => c.status === 'ativo')
       const batizados = contacts.filter(c => c.status === 'batizado')
-      const vencidos = contacts.filter(c => c.sla_status === 'vencido')
-      const atencao = contacts.filter(c => c.sla_status === 'atencao')
+      const vencidos = ativos.filter(c => c.sla_status === 'vencido')
+      const atencao = ativos.filter(c => c.sla_status === 'atencao')
       const comDist = contacts.filter(c => c.data_distribuicao && c.data_primeiro_contato)
       const slaOk = comDist.filter(c => new Date(c.data_primeiro_contato!).getTime() - new Date(c.data_distribuicao!).getTime() <= 48*3600000)
       const slaPercent = comDist.length > 0 ? Math.round(slaOk.length/comDist.length*100) : 0

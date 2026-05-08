@@ -12,6 +12,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { Contact, Interaction, PipelineStage, SubtipoVisitante } from '@/types/database'
 import { SUBTIPO_VISITANTE_LABEL } from '@/types/database'
+import { FASE_LABELS, SUBETAPA_LABELS } from '@/lib/pipeline'
 
 export default function ContatoDetail() {
   const { id } = useParams<{ id: string }>()
@@ -19,6 +20,9 @@ export default function ContatoDetail() {
   const qc = useQueryClient()
   const [showModal, setShowModal] = useState(false)
   const [waSent, setWaSent] = useState(false)
+  const [showInativarModal, setShowInativarModal] = useState(false)
+  const [motivoInativar, setMotivoInativar] = useState('')
+  const [inativando, setInativando] = useState(false)
 
   const { data: contact, isLoading } = useQuery({
     queryKey: ['contact', id],
@@ -81,9 +85,16 @@ export default function ContatoDetail() {
   }
 
   async function handleMarcarInativo() {
-    if (!contact) return
-    const { error } = await supabase.from('contacts').update({ status: 'inativo' }).eq('id', contact.id)
+    if (!contact || !motivoInativar) return
+    setInativando(true)
+    const { error } = await supabase.from('contacts').update({
+      status: 'inativo',
+      observacoes: motivoInativar,
+    }).eq('id', contact.id)
+    setInativando(false)
     if (error) { toast.error('Erro ao marcar como inativo'); return }
+    setShowInativarModal(false)
+    setMotivoInativar('')
     toast.success('Contato marcado como inativo')
     qc.invalidateQueries({ queryKey: ['contact', id] })
   }
@@ -111,8 +122,10 @@ export default function ContatoDetail() {
             </div>
             <div className="bg-menta-dark/20 border border-menta-dark/30 rounded-lg p-3">
               <p className="text-xs text-muted-foreground mb-0.5">Etapa atual</p>
-              <p className="text-sm font-semibold text-menta-light">{contact.etapa_atual}. {contactStage?.nome}</p>
-              <p className="text-xs text-muted-foreground">{contactStage?.fase}</p>
+              <p className="text-sm font-semibold text-menta-light">
+                {SUBETAPA_LABELS[contact.subetapa_contato ?? contact.subetapa_qualificacao ?? contact.subetapa_encaminhamento ?? contact.subetapa_batismo ?? ''] || FASE_LABELS[contact.fase_pipeline]}
+              </p>
+              <p className="text-xs text-muted-foreground">{FASE_LABELS[contact.fase_pipeline]}</p>
             </div>
           </div>
           <div className="zion-card space-y-3">
@@ -150,8 +163,11 @@ export default function ContatoDetail() {
             </button>
           </div>
           {contact.status === 'ativo' && (
-            <button onClick={handleMarcarInativo}
-              className="w-full flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-yellow-400 hover:bg-yellow-400/5 border border-border hover:border-yellow-400/30 px-4 py-2 rounded-lg transition-all">
+            <button
+              onClick={() => setShowInativarModal(true)}
+              title="Use quando o contato não respondeu após todas as tentativas"
+              className="w-full flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-yellow-400 hover:bg-yellow-400/5 border border-border hover:border-yellow-400/30 px-4 py-2 rounded-lg transition-all"
+            >
               <MinusCircle size={13}/>Marcar como inativo
             </button>
           )}
@@ -181,6 +197,38 @@ export default function ContatoDetail() {
         </div>
       </div>
       {showModal && stages && <InteractionModal contact={contact} stages={stages} onClose={()=>setShowModal(false)} onSuccess={()=>{setShowModal(false);qc.invalidateQueries({queryKey:['contact',id]});qc.invalidateQueries({queryKey:['interactions',id]})}}/>}
+
+      {showInativarModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setShowInativarModal(false)} />
+          <div className="relative bg-card border border-border rounded-2xl w-full max-w-sm p-5">
+            <h2 className="text-base font-semibold text-offwhite mb-1">Marcar como inativo</h2>
+            <p className="text-xs text-muted-foreground mb-4">Use quando o contato não respondeu após todas as tentativas ou não deve mais ser contatado.</p>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Motivo <span className="text-red-400">*</span></label>
+            <select
+              className="zion-input mb-4"
+              value={motivoInativar}
+              onChange={e => setMotivoInativar(e.target.value)}
+            >
+              <option value="">Selecione um motivo</option>
+              <option value="Sem resposta após retentativas">Sem resposta após retentativas</option>
+              <option value="Já foi atendido por outro">Já foi atendido por outro</option>
+              <option value="Número incorreto">Número incorreto</option>
+              <option value="Outro">Outro</option>
+            </select>
+            <div className="flex gap-2">
+              <button onClick={() => setShowInativarModal(false)} className="zion-btn-secondary flex-1 text-sm">Cancelar</button>
+              <button
+                onClick={handleMarcarInativo}
+                disabled={!motivoInativar || inativando}
+                className="flex-1 py-2 px-4 rounded-lg text-sm font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/20 transition-all disabled:opacity-40"
+              >
+                {inativando ? <div className="w-4 h-4 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin mx-auto"/> : 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }

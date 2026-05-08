@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { Layout } from '@/components/layout/Layout'
@@ -8,6 +8,7 @@ import { PainelAlertas } from '@/components/contacts/PainelAlertas'
 import { redistribuirLead } from '@/lib/distribuicao'
 import { toast } from 'sonner'
 import { cn, getGrupoLabel } from '@/lib/utils'
+import { FASE_LABELS, SUBETAPA_LABELS } from '@/lib/pipeline'
 import type { Profile } from '@/types/database'
 
 export default function Equipe() {
@@ -15,6 +16,7 @@ export default function Equipe() {
   const qc = useQueryClient()
   const [redistribuindo, setRedistribuindo] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'equipe'|'alertas'>('alertas')
+  const [drawerVol, setDrawerVol] = useState<{ nome: string; contatos: any[] } | null>(null)
 
   const { data: voluntarios, isLoading } = useQuery({
     queryKey: ['equipe', profile?.grupo],
@@ -115,12 +117,60 @@ export default function Equipe() {
                           </div>
                         </div>
                       ))}
-                      {vol.contatos.length>5&&<p className="text-xs text-muted-foreground pt-1">+{vol.contatos.length-5} outros</p>}
+                      {vol.contatos.length>5&&(
+                        <button
+                          onClick={() => setDrawerVol({ nome: vol.nome, contatos: vol.contatos })}
+                          className="text-xs text-menta-light hover:underline pt-1 text-left"
+                        >
+                          +{vol.contatos.length-5} outros — ver todos
+                        </button>
+                      )}
                     </div>
                   )
                 })}
               </div>
             )}
+        </>
+      )}
+      {/* Drawer — lista completa de contatos do voluntário */}
+      {drawerVol && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/60" onClick={() => setDrawerVol(null)} />
+          <div className="fixed right-0 top-0 h-full w-full sm:w-[400px] z-50 bg-card border-l border-border flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div>
+                <h2 className="text-base font-semibold text-offwhite">{drawerVol.nome}</h2>
+                <p className="text-xs text-muted-foreground">{drawerVol.contatos.length} contatos atribuídos</p>
+              </div>
+              <button onClick={() => setDrawerVol(null)} className="text-muted-foreground hover:text-foreground"><X size={20}/></button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-3 space-y-2">
+              {[...drawerVol.contatos]
+                .sort((a, b) => {
+                  const order = { vencido: 0, atencao: 1, ok: 2 }
+                  return (order[a.sla_status as keyof typeof order] ?? 3) - (order[b.sla_status as keyof typeof order] ?? 3)
+                })
+                .map((c: any) => {
+                  const subetapa = SUBETAPA_LABELS[c.subetapa_contato ?? c.subetapa_qualificacao ?? c.subetapa_encaminhamento ?? c.subetapa_batismo ?? '']
+                  const faseLabel = c.fase_pipeline ? FASE_LABELS[c.fase_pipeline as keyof typeof FASE_LABELS] : `Et. ${c.etapa_atual}`
+                  return (
+                    <div key={c.id} className="flex items-center justify-between py-2.5 border-b border-border/40 last:border-0 gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={cn('w-2 h-2 rounded-full flex-shrink-0', {
+                          vencido: 'bg-red-400',
+                          atencao: 'bg-yellow-400',
+                          ok:      'bg-emerald-400',
+                        }[c.sla_status as string] ?? 'bg-muted-foreground')} />
+                        <span className="text-sm text-offwhite truncate">{c.nome}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
+                        {subetapa || faseLabel}
+                      </span>
+                    </div>
+                  )
+                })}
+            </div>
+          </div>
         </>
       )}
     </Layout>

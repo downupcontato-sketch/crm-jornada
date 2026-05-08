@@ -326,13 +326,14 @@ export default function GestaoLeads() {
 
       {/* Filtros */}
       <div className="flex flex-col sm:flex-row gap-2 mb-4">
-        <div className="relative flex-1">
+        <div className="relative flex-1 min-w-[280px]">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
-            className="zion-input pl-8 text-sm"
+            className="zion-input pl-8 text-sm w-full"
             placeholder="Buscar por nome ou telefone…"
             value={buscaInput}
             onChange={e => onBuscaChange(e.target.value)}
+            autoFocus
           />
         </div>
         <select className="zion-input text-sm" value={filtros.grupo} onChange={e => setFiltro('grupo', e.target.value)}>
