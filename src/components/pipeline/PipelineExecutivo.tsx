@@ -36,6 +36,17 @@ export function PipelineExecutivo() {
     },
   })
 
+  const { data: volMap = {} } = useQuery({
+    queryKey: ['vol-map'],
+    queryFn: async () => {
+      const { data } = await supabase.from('profiles').select('id,nome').eq('nivel','voluntario')
+      const map: Record<string, string> = {}
+      for (const p of data ?? []) map[p.id] = p.nome
+      return map
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+
   function handleUpdated(id: string, upd: Partial<Contact>) {
     qc.setQueryData(['pipeline-exec', grupoFiltro, mostrarInativos], (old: Contact[] | undefined) =>
       old?.map(c => c.id === id ? { ...c, ...upd } : c) ?? []
@@ -133,6 +144,7 @@ export function PipelineExecutivo() {
           contacts={drillContacts}
           onClose={() => setDrillFase(null)}
           onCard={c => { setDrawerContact(c); setDrillFase(null) }}
+          volMap={volMap}
         />
       )}
 

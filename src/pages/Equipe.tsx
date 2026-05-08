@@ -93,6 +93,8 @@ export default function Equipe() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {voluntarios?.map((vol:any)=>{
                   const venc = vol.contatos.filter((c:any)=>c.sla_status==='vencido').length
+                  const atencao = vol.contatos.filter((c:any)=>c.sla_status==='atencao').length
+                  const emDia = vol.contatos.filter((c:any)=>c.sla_status==='ok').length
                   const carga = vol.contatos.length
                   const pct = Math.round(carga/vol.max_contatos_ativos*100)
                   return (
@@ -107,12 +109,23 @@ export default function Equipe() {
                           <div className={cn('h-full rounded-full',carga>=vol.max_contatos_ativos?'bg-red-400':'bg-menta-light')} style={{width:`${Math.min(pct,100)}%`}}/>
                         </div>
                       </div>
-                      {vol.contatos.slice(0,5).map((c:any)=>(
+                      {carga > 0 && (
+                        <div className="flex gap-1.5 mb-3">
+                          {venc>0 && <span className="text-[10px] text-red-400 bg-red-400/10 border border-red-400/20 px-2 py-0.5 rounded-full">{venc} venc.</span>}
+                          {atencao>0 && <span className="text-[10px] text-yellow-400 bg-yellow-400/10 border border-yellow-400/20 px-2 py-0.5 rounded-full">{atencao} aten.</span>}
+                          {emDia>0 && <span className="text-[10px] text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded-full">{emDia} ok</span>}
+                        </div>
+                      )}
+                      {[...vol.contatos]
+                        .sort((a:any,b:any)=>{const o={vencido:0,atencao:1,ok:2};return (o[a.sla_status as keyof typeof o]??3)-(o[b.sla_status as keyof typeof o]??3)})
+                        .slice(0,5)
+                        .map((c:any)=>(
                         <div key={c.id} className="flex items-center justify-between text-xs py-1 border-b border-border/30 last:border-0">
                           <span className="text-muted-foreground truncate max-w-[140px]">{c.nome}</span>
                           <div className="flex items-center gap-1.5">
                             {c.sla_status==='vencido'&&<span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"/>}
                             {c.sla_status==='atencao'&&<span className="w-1.5 h-1.5 rounded-full bg-yellow-400"/>}
+                            {c.sla_status==='ok'&&<span className="w-1.5 h-1.5 rounded-full bg-emerald-400"/>}
                             <span className="text-muted-foreground">Et. {c.etapa_atual}</span>
                           </div>
                         </div>

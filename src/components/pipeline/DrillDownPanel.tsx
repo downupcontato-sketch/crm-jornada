@@ -10,6 +10,7 @@ interface Props {
   contacts: Contact[]
   onClose: () => void
   onCard: (c: Contact) => void
+  volMap?: Record<string, string>
 }
 
 const PER_PAGE = 25
@@ -80,7 +81,7 @@ function pageNumbers(current: number, total: number): (number | '...')[] {
 
 // ─── Componente ──────────────────────────────────────────────────────────────
 
-export function DrillDownPanel({ fase, contacts, onClose, onCard }: Props) {
+export function DrillDownPanel({ fase, contacts, onClose, onCard, volMap }: Props) {
   const chips = CHIPS[fase] ?? []
   const [activeChip, setActiveChip] = useState<string | null>(DEFAULT_CHIP[fase] ?? null)
   const [page, setPage] = useState(1)
@@ -193,7 +194,12 @@ export function DrillDownPanel({ fase, contacts, onClose, onCard }: Props) {
           ) : (
             <div className="space-y-1.5">
               {paginated.map(c => (
-                <CardLeadLista key={c.id} contact={c} onClick={onCard} />
+                <CardLeadLista
+                  key={c.id}
+                  contact={c}
+                  onClick={onCard}
+                  volNome={c.voluntario_atribuido_id ? volMap?.[c.voluntario_atribuido_id] : undefined}
+                />
               ))}
             </div>
           )}

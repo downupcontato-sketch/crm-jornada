@@ -7,9 +7,10 @@ import type { Contact } from '@/types/database'
 interface Props {
   contact: Contact
   onClick: (c: Contact) => void
+  volNome?: string
 }
 
-export function CardLeadLista({ contact, onClick }: Props) {
+export function CardLeadLista({ contact, onClick, volNome }: Props) {
   const sla = calcularSLAFase(contact)
   const sub = contact.subetapa_contato ?? contact.subetapa_qualificacao ??
     contact.subetapa_encaminhamento ?? contact.subetapa_batismo
@@ -47,6 +48,11 @@ export function CardLeadLista({ contact, onClick }: Props) {
           <span className={cn('text-[10px] font-medium', slaTextoCor(sla))}>
             {formatarSLALabel(contact)}
           </span>
+          {volNome && (
+            <span className="text-[10px] text-muted-foreground/60 ml-auto flex-shrink-0">
+              {volNome.split(' ')[0]}
+            </span>
+          )}
         </div>
       </div>
 
