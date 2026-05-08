@@ -89,6 +89,7 @@ export default function ContatoDetail() {
     setInativando(true)
     const { error } = await supabase.from('contacts').update({
       status: 'inativo',
+      sla_status: 'ok',
       observacoes: motivoInativar,
     }).eq('id', contact.id)
     setInativando(false)
