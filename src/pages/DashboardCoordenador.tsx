@@ -22,6 +22,8 @@ export default function DashboardCoordenador() {
         .select('id,nome,telefone,status,sla_status,voluntario_atribuido_id,fase_pipeline,data_distribuicao,data_primeiro_contato')
         .eq('grupo', grupo)
         .eq('status', 'ativo')
+        .eq('atribuido_por_coordenador', true)
+        .in('fase_pipeline', ['CONTATO_INICIAL', 'QUALIFICACAO', 'AULAS', 'POS_AULA'])
       if (error) throw error
       return (data ?? []) as Pick<Contact, 'id'|'nome'|'telefone'|'status'|'sla_status'|'voluntario_atribuido_id'|'fase_pipeline'|'data_distribuicao'|'data_primeiro_contato'>[]
     },

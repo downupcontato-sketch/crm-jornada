@@ -195,6 +195,8 @@ export default function GestaoLeads() {
         .from('contacts')
         .select('voluntario_atribuido_id')
         .eq('status', 'ativo')
+        .eq('atribuido_por_coordenador', true)
+        .in('fase_pipeline', ['CONTATO_INICIAL', 'QUALIFICACAO', 'AULAS', 'POS_AULA'])
         .in('voluntario_atribuido_id', data.map(v => v.id))
       const countMap: Record<string, number> = {}
       for (const c of counts ?? []) {

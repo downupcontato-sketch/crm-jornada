@@ -25,7 +25,7 @@ export default function Equipe() {
       let q = supabase.from('profiles').select('*').eq('nivel','voluntario').eq('ativo',true)
       if (profile?.nivel==='coordenador' && profile?.grupo) q = q.eq('grupo',profile.grupo)
       const { data: vols } = await q
-      const { data: contacts } = await supabase.from('contacts').select('id,nome,voluntario_atribuido_id,sla_status,status,fase_pipeline,subetapa_contato,subetapa_qualificacao').eq('status','ativo').in('voluntario_atribuido_id',(vols??[]).map((v:any)=>v.id))
+      const { data: contacts } = await supabase.from('contacts').select('id,nome,voluntario_atribuido_id,sla_status,status,fase_pipeline,subetapa_contato,subetapa_qualificacao').eq('status','ativo').eq('atribuido_por_coordenador',true).in('fase_pipeline',['CONTATO_INICIAL','QUALIFICACAO','AULAS','POS_AULA']).in('voluntario_atribuido_id',(vols??[]).map((v:any)=>v.id))
       return (vols??[]).map((v:any)=>({ ...v as Profile, contatos:(contacts??[]).filter((c:any)=>c.voluntario_atribuido_id===v.id) }))
     },
     enabled: !!profile,
