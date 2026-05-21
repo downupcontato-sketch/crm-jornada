@@ -10,18 +10,26 @@ export function calcularFrequencia(c: Pick<Contact, 'presenca_aula1'|'presenca_a
   return { presentes, total: realizadas, atingiuMinimo: presentes >= 3 }
 }
 
-// ─── SLA por fase ────────────────────────────────────────────────────────────
+// ─── SLA — exclusivo para o prazo de PRIMEIRO CONTATO ────────────────────────
+// SLA = tempo desde a distribuição até o primeiro toque no WhatsApp (48h).
+// Uma vez que data_primeiro_contato esteja preenchida, SLA está encerrado.
 
-export function calcularSLAFase(c: Pick<Contact, 'updated_at' | 'fase_pipeline'>): 'ok' | 'warn' | 'over' {
-  const horas = (Date.now() - new Date(c.updated_at).getTime()) / 3_600_000
-  if (c.fase_pipeline === 'CONTATO_INICIAL') {
-    if (horas < 24) return 'ok'
-    if (horas < 48) return 'warn'
-    return 'over'
-  }
-  if (horas < 72) return 'ok'
-  if (horas < 120) return 'warn'
+export function calcularSLAFase(c: Pick<Contact, 'data_distribuicao' | 'data_primeiro_contato' | 'fase_pipeline'>): 'ok' | 'warn' | 'over' {
+  if (c.fase_pipeline !== 'CONTATO_INICIAL') return 'ok'
+  if (c.data_primeiro_contato) return 'ok'
+  if (!c.data_distribuicao) return 'ok'
+  const horas = (Date.now() - new Date(c.data_distribuicao).getTime()) / 3_600_000
+  if (horas < 24) return 'ok'
+  if (horas < 48) return 'warn'
   return 'over'
+}
+
+// Timer pós-contato: 48h após data_primeiro_contato para o voluntário registrar retorno
+export function calcularTimerResposta(c: Pick<Contact, 'data_primeiro_contato' | 'fase_pipeline'>): 'aguardando' | 'feedback_pendente' | null {
+  if (c.fase_pipeline !== 'CONTATO_INICIAL') return null
+  if (!c.data_primeiro_contato) return null
+  const horas = (Date.now() - new Date(c.data_primeiro_contato).getTime()) / 3_600_000
+  return horas < 48 ? 'aguardando' : 'feedback_pendente'
 }
 
 export function slaBordaCor(sla: 'ok' | 'warn' | 'over'): string {
@@ -32,20 +40,21 @@ export function slaTextoCor(sla: 'ok' | 'warn' | 'over'): string {
   return { ok: 'text-emerald-400', warn: 'text-yellow-400', over: 'text-red-400' }[sla]
 }
 
-export function calcularHorasRestantesSLA(c: Pick<Contact, 'updated_at' | 'fase_pipeline'>): number {
-  const horas = (Date.now() - new Date(c.updated_at).getTime()) / 3_600_000
-  const limite = c.fase_pipeline === 'CONTATO_INICIAL' ? 48 : 120
-  return Math.max(0, Math.floor(limite - horas))
+export function calcularHorasRestantesSLA(c: Pick<Contact, 'data_distribuicao' | 'fase_pipeline'>): number {
+  if (!c.data_distribuicao || c.fase_pipeline !== 'CONTATO_INICIAL') return 0
+  const horas = (Date.now() - new Date(c.data_distribuicao).getTime()) / 3_600_000
+  return Math.max(0, Math.floor(48 - horas))
 }
 
-export function formatarSLALabel(c: Pick<Contact, 'updated_at' | 'fase_pipeline'>): string {
+export function formatarSLALabel(c: Pick<Contact, 'data_distribuicao' | 'data_primeiro_contato' | 'fase_pipeline'>): string {
+  if (c.fase_pipeline !== 'CONTATO_INICIAL') return ''
+  if (c.data_primeiro_contato) return 'contatado'
+  if (!c.data_distribuicao) return ''
   const sla = calcularSLAFase(c)
   if (sla === 'over') {
-    const horas = Math.floor((Date.now() - new Date(c.updated_at).getTime()) / 3_600_000)
-    const limite = c.fase_pipeline === 'CONTATO_INICIAL' ? 48 : 120
-    const vencidoHa = horas - limite
-    if (vencidoHa < 24) return `vencido há ${vencidoHa}h`
-    return `vencido há ${Math.floor(vencidoHa / 24)}d`
+    const horas = Math.floor((Date.now() - new Date(c.data_distribuicao).getTime()) / 3_600_000)
+    const vencidoHa = horas - 48
+    return vencidoHa < 24 ? `vencido há ${vencidoHa}h` : `vencido há ${Math.floor(vencidoHa / 24)}d`
   }
   const restantes = calcularHorasRestantesSLA(c)
   if (restantes < 24) return `${restantes}h restantes`
@@ -65,26 +74,26 @@ export const FASE_LABELS: Record<FasePipeline, string> = {
 }
 
 export const SUBETAPA_LABELS: Record<string, string> = {
-  // Contato
-  TENTATIVA_1:          '1ª Tentativa',
-  TENTATIVA_2:          '2ª Tentativa',
-  TENTATIVA_3:          '3ª Tentativa',
+  // Contato (TENTATIVA_3 mantido apenas para exibição de histórico legado)
+  TENTATIVA_1:          'Aguardando 1ª resposta',
+  TENTATIVA_2:          'Aguardando 2ª resposta',
+  TENTATIVA_3:          '3ª Tentativa (legado)',
   // Qualificação
-  CONVERSA:             'Conversa',
-  PERFIL_CONFIRMADO:    'Perfil Confirmado',
-  CONVITE_ENVIADO:      'Convite Enviado',
+  CONVERSA:             'Em conversa',
+  PERFIL_CONFIRMADO:    'Perfil qualificado',
+  CONVITE_ENVIADO:      'Convite enviado',
   AGUARDANDO_PROVER:    'Aguardando PROVER',
-  PROVER_CONFIRMADO:    'PROVER Confirmado',
+  PROVER_CONFIRMADO:    'PROVER confirmado',
   // Encaminhamento
   ENCAMINHADO:          'Encaminhado',
-  HANDS_OFF_CONFIRMADO: 'Hands-off Confirmado',
+  HANDS_OFF_CONFIRMADO: 'Hands-off confirmado',
   // Batismo
-  DECIDIU_BATIZAR:      'Decidiu Batizar',
-  LISTA_ESPERA:         'Lista de Espera',
-  INSCRICAO_CONFIRMADA: 'Inscrição Confirmada',
-  AULA_BATISMO:         'Aula de Batismo',
-  CUMPRE_REQUISITOS:    'Cumpre Requisitos',
-  BATISMO_AGENDADO:     'Batismo Agendado',
+  DECIDIU_BATIZAR:      'Decidiu batizar',
+  LISTA_ESPERA:         'Lista de espera',
+  INSCRICAO_CONFIRMADA: 'Inscrição confirmada',
+  AULA_BATISMO:         'Aula de batismo',
+  CUMPRE_REQUISITOS:    'Cumpre requisitos',
+  BATISMO_AGENDADO:     'Batismo agendado',
 }
 
 // Label do próximo passo para o botão "Avançar"
@@ -177,11 +186,8 @@ export async function avancarSubetapa(c: Contact, userId: string): Promise<Parti
   let upd: Partial<Contact> = {}
 
   if (c.fase_pipeline === 'CONTATO_INICIAL') {
+    // Máximo 2 tentativas — TENTATIVA_2 é resolvida diretamente no DrawerLead
     if (c.subetapa_contato === 'TENTATIVA_1') upd = { subetapa_contato: 'TENTATIVA_2' }
-    else if (c.subetapa_contato === 'TENTATIVA_2') upd = { subetapa_contato: 'TENTATIVA_3' }
-    else if (c.subetapa_contato === 'TENTATIVA_3') upd = {
-      fase_pipeline: 'QUALIFICACAO', subetapa_contato: null, subetapa_qualificacao: 'CONVERSA',
-    }
   } else if (c.fase_pipeline === 'QUALIFICACAO') {
     const next: Record<string, Partial<Contact>> = {
       CONVERSA:          { subetapa_qualificacao: 'PERFIL_CONFIRMADO' },
@@ -338,7 +344,10 @@ export const MOTIVOS_PERDA: { fase: string; motivos: { value: MotivoPerdaLead; l
     { value: 'SEM_RESPOSTA_APOS_TENTATIVAS',label: 'Sem resposta após tentativas' },
   ]},
   { fase: 'Fase 3 — Qualificação', motivos: [
-    { value: 'SEM_DISPONIBILIDADE',  label: 'Sem disponibilidade' },
+    { value: 'SEM_DISPONIBILIDADE',  label: 'Sem disponibilidade de horário' },
+    { value: 'JA_INTEGRADO',         label: 'Já integrado / pertence à igreja há anos' },
+    { value: 'VISITANTE_OCASIONAL',  label: 'Visitante ocasional (mora em outra cidade ou só visitou)' },
+    { value: 'INDICADO_BATISMO',     label: 'Indicado para batismo' },
     { value: 'NAO_INSCREVEU_PROVER', label: 'Não inscreveu no PROVER' },
   ]},
   { fase: 'Fase 4 — Aulas', motivos: [

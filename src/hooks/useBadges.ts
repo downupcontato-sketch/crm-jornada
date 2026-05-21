@@ -7,9 +7,10 @@ export interface Badges {
   usuariosPendentes: number
   novosCadastros: number
   slaVencidos: number
+  semVoluntario: number
 }
 
-const INITIAL: Badges = { usuariosPendentes: 0, novosCadastros: 0, slaVencidos: 0 }
+const INITIAL: Badges = { usuariosPendentes: 0, novosCadastros: 0, slaVencidos: 0, semVoluntario: 0 }
 
 export function useBadges() {
   const { profile, isAdmin, isCoordenador, isVoluntario, nivel } = useAuth()
@@ -50,14 +51,14 @@ export function useBadges() {
         novosCadastros = count ?? 0
       }
 
-      // 3. SLA vencidos (cálculo client-side)
+      // 3. SLA vencidos — contatos sem primeiro contato além do prazo de 48h
       let slaVencidos = 0
       if (isAdmin || isCoordenador || nivel === 'lider' || isVoluntario) {
         let q = supabase
           .from('contacts')
-          .select('id,updated_at,fase_pipeline,voluntario_atribuido_id,grupo')
+          .select('id,data_distribuicao,data_primeiro_contato,fase_pipeline,voluntario_atribuido_id,grupo')
           .eq('status', 'ativo')
-          .in('fase_pipeline', ['CONTATO_INICIAL', 'QUALIFICACAO', 'AULAS', 'POS_AULA'])
+          .eq('fase_pipeline', 'CONTATO_INICIAL')
         if (nivel === 'voluntario') {
           q = q.eq('voluntario_atribuido_id', profile.id)
         } else if ((nivel === 'coordenador' || nivel === 'lider') && profile.grupo) {
@@ -67,7 +68,22 @@ export function useBadges() {
         slaVencidos = (data ?? []).filter(c => calcularSLAFase(c as any) === 'over').length
       }
 
-      setBadges({ usuariosPendentes, novosCadastros, slaVencidos })
+      // 4. Leads sem voluntário atribuído (visível para gestores)
+      let semVoluntario = 0
+      if (isAdmin || isCoordenador || nivel === 'lider') {
+        let q = supabase
+          .from('contacts')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'ativo')
+          .is('voluntario_atribuido_id', null)
+        if (isCoordenador && !isAdmin && profile.grupo) {
+          q = q.eq('grupo', profile.grupo)
+        }
+        const { count } = await q
+        semVoluntario = count ?? 0
+      }
+
+      setBadges({ usuariosPendentes, novosCadastros, slaVencidos, semVoluntario })
     }, 300)
   }, [profile, isAdmin, isCoordenador, isVoluntario, nivel])
 

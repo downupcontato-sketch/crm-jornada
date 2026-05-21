@@ -82,6 +82,11 @@ export function Sidebar() {
             {item.to === '/gestao/leads' && badges.novosCadastros > 0 && (
               <Badge count={badges.novosCadastros} color="bg-orange-500" />
             )}
+
+            {/* Badge: leads sem voluntário */}
+            {item.to === '/equipe' && badges.semVoluntario > 0 && (
+              <Badge count={badges.semVoluntario} color="bg-red-500" />
+            )}
           </NavLink>
         ))}
       </nav>

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, Users, Phone, AlertCircle } from 'lucide-react'
+import { AlertTriangle, Users, Phone, AlertCircle, UserX } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { Layout } from '@/components/layout/Layout'
@@ -19,11 +19,11 @@ export default function DashboardCoordenador() {
       if (!grupo) return []
       const { data, error } = await supabase
         .from('contacts')
-        .select('id,nome,telefone,status,sla_status,voluntario_atribuido_id,fase_pipeline,updated_at')
+        .select('id,nome,telefone,status,sla_status,voluntario_atribuido_id,fase_pipeline,data_distribuicao,data_primeiro_contato')
         .eq('grupo', grupo)
         .eq('status', 'ativo')
       if (error) throw error
-      return (data ?? []) as Pick<Contact, 'id'|'nome'|'telefone'|'status'|'sla_status'|'voluntario_atribuido_id'|'fase_pipeline'|'updated_at'>[]
+      return (data ?? []) as Pick<Contact, 'id'|'nome'|'telefone'|'status'|'sla_status'|'voluntario_atribuido_id'|'fase_pipeline'|'data_distribuicao'|'data_primeiro_contato'>[]
     },
     enabled: !!grupo,
     refetchInterval: 60000,
@@ -85,9 +85,10 @@ export default function DashboardCoordenador() {
 
   const isLoading = loadingContacts || loadingVoluntarios
 
-  const totalAtivos = contacts.length
-  const slaVencidos = contacts.filter(c => calcularSLAFase(c as any) === 'over').length
-  const slaAtencao = contacts.filter(c => calcularSLAFase(c as any) === 'warn').length
+  const totalAtivos    = contacts.length
+  const semVoluntario  = contacts.filter(c => !c.voluntario_atribuido_id).length
+  const slaVencidos    = contacts.filter(c => calcularSLAFase(c as any) === 'over').length
+  const slaAtencao     = contacts.filter(c => calcularSLAFase(c as any) === 'warn').length
 
   // Contatos urgentes para lista de alertas
   const contatosUrgentes = contacts.filter(c => calcularSLAFase(c as any) === 'over')
@@ -146,6 +147,19 @@ export default function DashboardCoordenador() {
         </div>
       )}
 
+      {/* Alerta: leads sem voluntário */}
+      {semVoluntario > 0 && (
+        <div className="flex items-center gap-3 bg-orange-500/10 border border-orange-500/20 rounded-lg px-4 py-3 mb-4 text-sm text-orange-400">
+          <UserX size={16} className="flex-shrink-0" />
+          <span>
+            <strong>{semVoluntario}</strong> lead{semVoluntario > 1 ? 's' : ''} sem voluntário atribuído no grupo.{' '}
+            <Link to="/equipe" className="underline hover:text-orange-300 transition-colors">
+              Distribuir agora →
+            </Link>
+          </span>
+        </div>
+      )}
+
       {/* SLA alerts */}
       {(slaVencidos > 0 || slaAtencao > 0) && (
         <div className="flex flex-wrap gap-2 mb-5">
@@ -165,25 +179,11 @@ export default function DashboardCoordenador() {
       )}
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-        <MetricCard
-          label="Ativos no Grupo"
-          value={totalAtivos}
-          sub="contatos em acompanhamento"
-          valueColor="text-menta-light"
-        />
-        <MetricCard
-          label="SLA Vencido"
-          value={slaVencidos}
-          sub="precisam de atenção imediata"
-          valueColor={slaVencidos > 0 ? 'text-red-400' : 'text-offwhite'}
-        />
-        <MetricCard
-          label="SLA Atenção"
-          value={slaAtencao}
-          sub="prazo se esgotando"
-          valueColor={slaAtencao > 0 ? 'text-yellow-400' : 'text-offwhite'}
-        />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <MetricCard label="Ativos no Grupo"   value={totalAtivos}   sub="em acompanhamento"        valueColor="text-menta-light" />
+        <MetricCard label="Sem voluntário"     value={semVoluntario} sub="aguardando distribuição"  valueColor={semVoluntario > 0 ? 'text-orange-400' : 'text-offwhite'} />
+        <MetricCard label="Fora do SLA"        value={slaVencidos}   sub="sem contato após 48h"     valueColor={slaVencidos > 0 ? 'text-red-400' : 'text-offwhite'} />
+        <MetricCard label="SLA Atenção"        value={slaAtencao}    sub="prazo se esgotando"       valueColor={slaAtencao > 0 ? 'text-yellow-400' : 'text-offwhite'} />
       </div>
 
       {/* Alertas SLA detalhados por voluntário */}

@@ -32,7 +32,8 @@ export type MotivoPerdaLead =
   | 'SEM_APRESENTACAO_VISITANTES' | 'SEM_APELO_NOVO_NASCIMENTO'
   | 'NAO_CADASTROU' | 'DADOS_FRIOS_INCOMPLETOS'
   | 'NUMERO_INCORRETO' | 'SEM_RESPOSTA_APOS_TENTATIVAS'
-  | 'SEM_DISPONIBILIDADE' | 'NAO_INSCREVEU_PROVER'
+  | 'SEM_DISPONIBILIDADE' | 'JA_INTEGRADO' | 'VISITANTE_OCASIONAL' | 'INDICADO_BATISMO'
+  | 'NAO_INSCREVEU_PROVER'
   | 'NAO_COMPARECEU_AULA_1' | 'FREQUENCIA_INSUFICIENTE'
   | 'NAO_ENTROU_LINK'
   | 'NAO_DECIDIU_BATIZAR' | 'NAO_RESPONDEU_CONTATO_BATISMO'
@@ -125,6 +126,7 @@ export interface Contact {
   data_batismo_agendado: string | null
   data_batismo_realizado: string | null
   link_confirmado_em: string | null
+  data_envio_convite: string | null
   motivo_perda: MotivoPerdaLead | null
   observacao_perda: string | null
   perda_definitiva: boolean

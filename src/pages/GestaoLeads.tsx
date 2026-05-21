@@ -37,7 +37,7 @@ const TIPO_BADGE: Record<ContactTipo, { cls: string; label: string }> = {
 
 type ContactComVol = Contact & { profiles?: { id: string; nome: string } | null }
 
-interface Filtros { busca: string; grupo: string; status: string; tipo: string; page: number }
+interface Filtros { busca: string; grupo: string; status: string; tipo: string; voluntario: string; page: number }
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
@@ -47,7 +47,7 @@ export default function GestaoLeads() {
 
   const [tab, setTab] = useState<'leads' | 'novos'>('leads')
   const [modalAprovacao, setModalAprovacao] = useState<{ contact: Contact; voluntarioId: string; fase: string } | null>(null)
-  const [filtros, setFiltros] = useState<Filtros>({ busca: '', grupo: '', status: '', tipo: '', page: 1 })
+  const [filtros, setFiltros] = useState<Filtros>({ busca: '', grupo: '', status: '', tipo: '', voluntario: '', page: 1 })
   const [buscaInput, setBuscaInput] = useState('')
   const [debounceTimer, setDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null)
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set())
@@ -84,6 +84,7 @@ export default function GestaoLeads() {
       if (filtros.grupo) q = q.eq('grupo', filtros.grupo)
       if (filtros.status) q = q.eq('status', filtros.status)
       if (filtros.tipo) q = q.eq('tipo', filtros.tipo)
+      if (filtros.voluntario) q = q.eq('voluntario_atribuido_id', filtros.voluntario)
 
       // Coordenador só vê o próprio grupo
       if (profile?.nivel === 'coordenador' && profile.grupo) {
@@ -403,9 +404,17 @@ export default function GestaoLeads() {
         </div>
       )}
 
-      {/* Contador */}
+      {/* Contador + chip de filtro por voluntário */}
       <div className="flex items-center justify-between mb-2">
         <p className="text-xs text-muted-foreground">{total} leads encontrados</p>
+        {filtros.voluntario && (
+          <button
+            onClick={() => setFiltros(f => ({ ...f, voluntario: '', page: 1 }))}
+            className="flex items-center gap-1 text-xs bg-menta-light/10 text-menta-light border border-menta-light/20 px-2 py-0.5 rounded-full hover:bg-menta-light/20 transition-all"
+          >
+            Filtrado por voluntário <X size={10}/>
+          </button>
+        )}
       </div>
 
       {/* Tabela */}
@@ -458,7 +467,17 @@ export default function GestaoLeads() {
                         </span>
                       </td>
                       <td className="px-3 py-3 hidden lg:table-cell">
-                        <span className="text-xs text-muted-foreground">{(lead as any).profiles?.nome ?? '—'}</span>
+                        {(lead as any).profiles?.nome ? (
+                          <button
+                            onClick={() => setFiltros(f => ({ ...f, voluntario: filtros.voluntario === (lead as any).profiles.id ? '' : (lead as any).profiles.id, page: 1 }))}
+                            className={cn('text-sm font-medium transition-colors', filtros.voluntario === (lead as any).profiles.id ? 'text-menta-light' : 'text-offwhite hover:text-menta-light')}
+                            title="Filtrar por este voluntário"
+                          >
+                            {(lead as any).profiles.nome}
+                          </button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground/50">— Sem atribuição —</span>
+                        )}
                       </td>
                       <td className="px-3 py-3 hidden lg:table-cell">
                         <span className="text-xs text-muted-foreground">{format(new Date(lead.created_at),'dd/MM/yy',{locale:ptBR})}</span>

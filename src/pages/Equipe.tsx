@@ -9,6 +9,7 @@ import { redistribuirLead } from '@/lib/distribuicao'
 import { toast } from 'sonner'
 import { cn, getGrupoLabel } from '@/lib/utils'
 import { FASE_LABELS, SUBETAPA_LABELS } from '@/lib/pipeline'
+import type { FasePipeline } from '@/types/database'
 import type { Profile } from '@/types/database'
 
 export default function Equipe() {
@@ -24,7 +25,7 @@ export default function Equipe() {
       let q = supabase.from('profiles').select('*').eq('nivel','voluntario').eq('ativo',true)
       if (profile?.nivel==='coordenador' && profile?.grupo) q = q.eq('grupo',profile.grupo)
       const { data: vols } = await q
-      const { data: contacts } = await supabase.from('contacts').select('id,nome,voluntario_atribuido_id,sla_status,status,etapa_atual').eq('status','ativo').in('voluntario_atribuido_id',(vols??[]).map((v:any)=>v.id))
+      const { data: contacts } = await supabase.from('contacts').select('id,nome,voluntario_atribuido_id,sla_status,status,fase_pipeline,subetapa_contato,subetapa_qualificacao').eq('status','ativo').in('voluntario_atribuido_id',(vols??[]).map((v:any)=>v.id))
       return (vols??[]).map((v:any)=>({ ...v as Profile, contatos:(contacts??[]).filter((c:any)=>c.voluntario_atribuido_id===v.id) }))
     },
     enabled: !!profile,
@@ -126,7 +127,9 @@ export default function Equipe() {
                             {c.sla_status==='vencido'&&<span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse"/>}
                             {c.sla_status==='atencao'&&<span className="w-1.5 h-1.5 rounded-full bg-yellow-400"/>}
                             {c.sla_status==='ok'&&<span className="w-1.5 h-1.5 rounded-full bg-emerald-400"/>}
-                            <span className="text-muted-foreground">Et. {c.etapa_atual}</span>
+                            <span className="text-muted-foreground text-[10px]">
+                              {SUBETAPA_LABELS[c.subetapa_contato ?? c.subetapa_qualificacao ?? ''] || FASE_LABELS[c.fase_pipeline as FasePipeline] || c.fase_pipeline}
+                            </span>
                           </div>
                         </div>
                       ))}
