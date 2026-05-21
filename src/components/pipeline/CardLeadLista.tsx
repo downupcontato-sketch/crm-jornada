@@ -4,29 +4,38 @@ import { calcularSLAFase, slaBordaCor, slaTextoCor, formatarSLALabel } from '@/l
 import { SUBETAPA_LABELS } from '@/lib/pipeline'
 import type { Contact } from '@/types/database'
 
+const TIPO_AVATAR: Record<string, string> = {
+  novo_nascimento: 'bg-menta-light/20 text-menta-light',
+  reconciliacao:   'bg-purple-500/20 text-purple-400',
+  visitante:       'bg-blue-500/20 text-blue-400',
+}
+
 interface Props {
   contact: Contact
   onClick: (c: Contact) => void
   volNome?: string
+  isSelected?: boolean
 }
 
-export function CardLeadLista({ contact, onClick, volNome }: Props) {
+export function CardLeadLista({ contact, onClick, volNome, isSelected }: Props) {
   const sla = calcularSLAFase(contact)
   const sub = contact.subetapa_contato ?? contact.subetapa_qualificacao ??
     contact.subetapa_encaminhamento ?? contact.subetapa_batismo
+  const avatarCls = TIPO_AVATAR[contact.tipo] ?? 'bg-muted text-muted-foreground'
 
   return (
     <button
       onClick={() => onClick(contact)}
       className={cn(
-        'w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg border border-border',
-        'bg-card/60 hover:bg-card transition-all border-l-2',
-        slaBordaCor(sla),
+        'w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg border transition-all border-l-2',
+        isSelected
+          ? 'bg-menta-light/10 border-menta-light/40 border-l-menta-light'
+          : cn('bg-card/60 hover:bg-card border-border', slaBordaCor(sla)),
       )}
     >
-      {/* Avatar inicial */}
-      <div className="w-8 h-8 rounded-full bg-menta-light/15 flex items-center justify-center flex-shrink-0">
-        <span className="text-xs font-bold text-menta-light">
+      {/* Avatar por tipo */}
+      <div className={cn('w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0', avatarCls)}>
+        <span className="text-xs font-bold">
           {contact.nome.charAt(0).toUpperCase()}
         </span>
       </div>

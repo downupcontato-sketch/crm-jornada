@@ -20,9 +20,8 @@ const PER_PAGE = 25
 
 const CHIPS: Record<string, { key: string; label: string }[]> = {
   CONTATO_INICIAL: [
-    { key: 'TENTATIVA_1',       label: '1ª tentativa' },
-    { key: 'TENTATIVA_2',       label: '2ª tentativa' },
-    { key: 'TENTATIVA_3',       label: '3ª tentativa' },
+    { key: 'TENTATIVA_1', label: '1ª tentativa' },
+    { key: 'TENTATIVA_2', label: '2ª tentativa' },
   ],
   QUALIFICACAO: [
     { key: 'CONVERSA',          label: 'Conversa' },
@@ -84,6 +83,15 @@ function pageNumbers(current: number, total: number): (number | '...')[] {
 
 // ─── Componente principal ────────────────────────────────────────────────────
 
+type FiltroTipo = '' | 'novo_nascimento' | 'reconciliacao' | 'visitante'
+type FiltroUrgencia = '' | 'urgente'
+
+const TIPO_OPTS: { value: FiltroTipo; label: string }[] = [
+  { value: 'novo_nascimento', label: 'Novo Nascimento' },
+  { value: 'reconciliacao',   label: 'Reconciliação' },
+  { value: 'visitante',       label: 'Visitante' },
+]
+
 export function PipelineVoluntario() {
   const { profile } = useAuth()
   const qc = useQueryClient()
@@ -91,6 +99,8 @@ export function PipelineVoluntario() {
   const [drawerContact, setDrawerContact] = useState<Contact | null>(null)
   const [modalPresenca, setModalPresenca] = useState<{ contact: Contact; aula: 1|2|3|4 } | null>(null)
   const [modalContato, setModalContato] = useState<Contact | null>(null)
+  const [filtroTipo, setFiltroTipo] = useState<FiltroTipo>('')
+  const [filtroUrgencia, setFiltroUrgencia] = useState<FiltroUrgencia>('')
 
   const effectiveSub = getEffective(fase, subetapa)
 
@@ -132,9 +142,9 @@ export function PipelineVoluntario() {
     return c
   }, [meta, fase])
 
-  // ── Query 2: lista paginada (com filtro de subetapa) ──────────────────────
+  // ── Query 2: lista paginada (com filtro de subetapa + tipo + urgência) ──────
   const { data: listData, isLoading, error } = useQuery({
-    queryKey: ['pipeline-vol-list', profile?.id, fase, effectiveSub, page],
+    queryKey: ['pipeline-vol-list', profile?.id, fase, effectiveSub, page, filtroTipo, filtroUrgencia],
     queryFn: async () => {
       if (!profile) return { contacts: [], total: 0 }
       const from = (page - 1) * PER_PAGE
@@ -146,6 +156,8 @@ export function PipelineVoluntario() {
         .order('updated_at', { ascending: true })
         .range(from, from + PER_PAGE - 1)
       q = applySubetapaFilter(q, fase, effectiveSub) as typeof q
+      if (filtroTipo)     q = (q as any).eq('tipo', filtroTipo)
+      if (filtroUrgencia) q = (q as any).in('sla_status', ['vencido', 'atencao'])
       const { data, count, error } = await q
       if (error) throw error
       return { contacts: (data ?? []) as Contact[], total: count ?? 0 }
@@ -164,6 +176,14 @@ export function PipelineVoluntario() {
     if (modalContato?.id === id)   setModalContato(c => c ? { ...c, ...upd } : c)
   }
 
+  function handleSetFase(f: FasePipeline) {
+    setFase(f)
+    setFiltroTipo('')
+    setFiltroUrgencia('')
+  }
+
+  const filtrosAtivos = filtroTipo !== '' || filtroUrgencia !== ''
+
   const chips = CHIPS[fase] ?? []
 
   return (
@@ -173,7 +193,7 @@ export function PipelineVoluntario() {
         {FASES_ATIVAS.map(f => {
           const count = contagemFase[f] ?? 0
           return (
-            <button key={f} onClick={() => setFase(f)}
+            <button key={f} onClick={() => handleSetFase(f)}
               className={cn('flex-shrink-0 px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap border',
                 fase === f
                   ? 'bg-menta-light/15 text-menta-light border-menta-light/30'
@@ -224,6 +244,43 @@ export function PipelineVoluntario() {
         </div>
       )}
 
+      {/* ── Filtros ── */}
+      <div className="flex items-center gap-2 mb-3 flex-wrap">
+        {TIPO_OPTS.map(opt => (
+          <button
+            key={opt.value}
+            onClick={() => { setFiltroTipo(filtroTipo === opt.value ? '' : opt.value); setPage(1) }}
+            className={cn(
+              'px-2.5 py-1 rounded-full text-xs font-medium border transition-all',
+              filtroTipo === opt.value
+                ? 'bg-menta-light/20 border-menta-light/50 text-menta-light'
+                : 'border-border text-muted-foreground hover:text-foreground',
+            )}
+          >
+            {opt.label}
+          </button>
+        ))}
+        <button
+          onClick={() => { setFiltroUrgencia(filtroUrgencia === 'urgente' ? '' : 'urgente'); setPage(1) }}
+          className={cn(
+            'px-2.5 py-1 rounded-full text-xs font-medium border transition-all',
+            filtroUrgencia === 'urgente'
+              ? 'bg-red-400/20 border-red-400/40 text-red-400'
+              : 'border-border text-muted-foreground hover:text-foreground',
+          )}
+        >
+          ⚠ Urgentes
+        </button>
+        {filtrosAtivos && (
+          <button
+            onClick={() => { setFiltroTipo(''); setFiltroUrgencia(''); setPage(1) }}
+            className="px-2.5 py-1 rounded-full text-xs text-muted-foreground hover:text-foreground border border-dashed border-border transition-all"
+          >
+            Limpar filtros ×
+          </button>
+        )}
+      </div>
+
       {/* ── Conteúdo ── */}
       {error ? (
         <div className="text-center py-16 text-red-400 text-sm flex items-center justify-center gap-2">
@@ -251,7 +308,11 @@ export function PipelineVoluntario() {
         <div className="space-y-1.5">
           {contacts.map(c => (
             <div key={c.id} className="flex items-center gap-2">
-              <CardLeadLista contact={c} onClick={setDrawerContact} />
+              <CardLeadLista
+                contact={c}
+                onClick={setDrawerContact}
+                isSelected={drawerContact?.id === c.id}
+              />
               <button
                 onClick={() => setModalContato(c)}
                 className="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full text-muted-foreground hover:text-menta-light hover:bg-menta-light/10 transition-all"
