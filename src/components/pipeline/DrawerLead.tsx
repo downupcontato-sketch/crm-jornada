@@ -295,7 +295,7 @@ export function QualificacaoSection({
             onClick={onNaoQualificada}
             className="w-full py-2.5 rounded-lg text-sm font-medium bg-red-400/15 border border-red-400/30 text-red-400 hover:bg-red-400/25 transition-all"
           >
-            Registrar perda — sem perfil
+            Registrar desqualificação
           </button>
         )}
       </div>
