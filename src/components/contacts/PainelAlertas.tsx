@@ -9,7 +9,6 @@ import { toast } from 'sonner'
 import { cn, getGrupoLabel, formatPhone } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Link } from 'react-router-dom'
 import type { Profile } from '@/types/database'
 
 type AlertaTipo = 'SLA_48H_VOLUNTARIO' | 'SLA_72H_COORDENADOR' | 'FILA_CHEIA'

@@ -49,7 +49,14 @@ export function HistoricoTentativas({ contactId }: { contactId: string }) {
         .eq('contact_id', contactId)
         .in('tipo', ['REDISTRIBUICAO_SLA', 'MANUAL'])
         .order('created_at', { ascending: false })
-      return (data ?? []) as {
+      return (data ?? []).map((r: any) => ({
+        id: r.id as string,
+        tipo: r.tipo as string,
+        motivo: (r.motivo ?? null) as string | null,
+        created_at: r.created_at as string,
+        voluntario_id: r.voluntario_id as string,
+        profiles: Array.isArray(r.profiles) ? (r.profiles[0] ?? null) : (r.profiles ?? null),
+      })) as {
         id: string; tipo: string; motivo: string | null; created_at: string
         voluntario_id: string; profiles: { nome: string } | null
       }[]
