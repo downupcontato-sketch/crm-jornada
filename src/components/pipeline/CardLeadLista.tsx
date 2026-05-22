@@ -47,6 +47,9 @@ export function CardLeadLista({ contact, onClick, volNome, isSelected }: Props) 
           <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0', getTipoBadgeColor(contact.tipo))}>
             {getTipoLabel(contact.tipo)}
           </span>
+          {contact.dado_reportado && (
+            <span className="text-[10px] text-amber-400 flex-shrink-0" title="Dado incorreto reportado">⚑</span>
+          )}
         </div>
         <div className="flex items-center gap-2 mt-0.5">
           {sub && (

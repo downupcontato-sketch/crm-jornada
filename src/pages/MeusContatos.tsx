@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { Search, Phone } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { useViewAs } from '@/contexts/ViewAsContext'
 import { Layout } from '@/components/layout/Layout'
 import { DrawerLead } from '@/components/pipeline/DrawerLead'
 import { cn, getTipoBadgeColor, getTipoLabel } from '@/lib/utils'
@@ -61,7 +62,7 @@ function KanbanCard({ contact, onClick }: { contact: Contact; onClick: (c: Conta
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-offwhite truncate">{contact.nome}</p>
           {subLabel && (
-            <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{subLabel}</p>
+            <p className="text-xs text-muted-foreground font-medium mt-0.5 truncate">{subLabel}</p>
           )}
         </div>
       </div>
@@ -72,6 +73,9 @@ function KanbanCard({ contact, onClick }: { contact: Contact; onClick: (c: Conta
         {sla === 'over' && (
           <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium bg-red-500/15 text-red-400">SLA vencido</span>
         )}
+        {contact.inscricao_confirmada && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium bg-menta-light/15 text-menta-light border border-menta-light/20">Inscrita</span>
+        )}
       </div>
     </button>
   )
@@ -79,6 +83,8 @@ function KanbanCard({ contact, onClick }: { contact: Contact; onClick: (c: Conta
 
 export default function MeusContatos() {
   const { profile } = useAuth()
+  const { viewingAs, clearViewingAs } = useViewAs()
+  const targetId = viewingAs?.id ?? profile?.id
   const qc = useQueryClient()
   const [search, setSearch]         = useState('')
   const [filter, setFilter]         = useState<Filter>('ativos')
@@ -96,18 +102,18 @@ export default function MeusContatos() {
   }
 
   const { data: contacts, isLoading } = useQuery({
-    queryKey: ['meus-contatos', profile?.id],
+    queryKey: ['meus-contatos', targetId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('contacts')
         .select('*')
-        .eq('voluntario_atribuido_id', profile!.id)
+        .eq('voluntario_atribuido_id', targetId!)
         .eq('atribuido_por_coordenador', true)
         .order('updated_at', { ascending: true })
       if (error) throw error
       return data as Contact[]
     },
-    enabled: !!profile?.id,
+    enabled: !!targetId,
   })
 
   const filtered = contacts?.filter(c => {
@@ -131,11 +137,29 @@ export default function MeusContatos() {
     if (drawerContact) {
       setDrawerContact({ ...drawerContact, ...upd })
     }
-    qc.invalidateQueries({ queryKey: ['meus-contatos', profile?.id] })
+    qc.invalidateQueries({ queryKey: ['meus-contatos', targetId] })
   }
 
   return (
-    <Layout title="Meus Contatos">
+    <Layout title={viewingAs ? `Visão: ${viewingAs.nome.split(' ')[0]}` : 'Meus Contatos'}>
+
+      {/* Banner "Ver como" */}
+      {viewingAs && (
+        <div className="flex items-center justify-between bg-amber-400/10 border border-amber-400/30 rounded-xl px-4 py-2.5 mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <span className="text-sm text-amber-400 font-medium">
+              Visualizando como <strong>{viewingAs.nome}</strong> — modo leitura
+            </span>
+          </div>
+          <button
+            onClick={clearViewingAs}
+            className="text-xs text-amber-400/70 hover:text-amber-400 border border-amber-400/30 hover:border-amber-400/60 px-2.5 py-1 rounded-lg transition-all"
+          >
+            Sair
+          </button>
+        </div>
+      )}
 
       {/* Alertas SLA */}
       {vencidos.length > 0 && (

@@ -6,6 +6,7 @@ import { Layout } from '@/components/layout/Layout'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
 import { calcularSLAFase, formatarSLALabel } from '@/lib/pipeline'
+import { COORDINATOR_CONTACT_FILTER } from '@/lib/queries/filters'
 import type { Contact } from '@/types/database'
 
 export default function DashboardCoordenador() {
@@ -22,7 +23,7 @@ export default function DashboardCoordenador() {
         .select('id,nome,telefone,status,sla_status,voluntario_atribuido_id,fase_pipeline,data_distribuicao,data_primeiro_contato')
         .eq('grupo', grupo)
         .eq('status', 'ativo')
-        .eq('atribuido_por_coordenador', true)
+        .eq('atribuido_por_coordenador', COORDINATOR_CONTACT_FILTER.atribuido_por_coordenador)
         .in('fase_pipeline', ['CONTATO_INICIAL', 'QUALIFICACAO', 'AULAS', 'POS_AULA'])
       if (error) throw error
       return (data ?? []) as Pick<Contact, 'id'|'nome'|'telefone'|'status'|'sla_status'|'voluntario_atribuido_id'|'fase_pipeline'|'data_distribuicao'|'data_primeiro_contato'>[]
@@ -87,10 +88,16 @@ export default function DashboardCoordenador() {
 
   const isLoading = loadingContacts || loadingVoluntarios
 
-  const totalAtivos    = contacts.length
-  const semVoluntario  = contacts.filter(c => !c.voluntario_atribuido_id).length
-  const slaVencidos    = contacts.filter(c => calcularSLAFase(c as any) === 'over').length
-  const slaAtencao     = contacts.filter(c => calcularSLAFase(c as any) === 'warn').length
+  const totalAtivos      = contacts.length
+  const semVoluntario    = contacts.filter(c => !c.voluntario_atribuido_id).length
+  // SLA — 3 estados
+  const slaPendentes     = contacts.filter(c =>
+    c.fase_pipeline === 'CONTATO_INICIAL' && !c.data_primeiro_contato && calcularSLAFase(c as any) !== 'over'
+  ).length
+  const slaForaDoPrazo   = contacts.filter(c => calcularSLAFase(c as any) === 'over').length
+  const slaDentroDoSLA   = contacts.filter(c =>
+    c.fase_pipeline === 'CONTATO_INICIAL' && !!c.data_primeiro_contato && c.sla_status === 'ok'
+  ).length
 
   // Contatos urgentes para lista de alertas
   const contatosUrgentes = contacts.filter(c => calcularSLAFase(c as any) === 'over')
@@ -151,41 +158,29 @@ export default function DashboardCoordenador() {
 
       {/* Alerta: leads sem voluntário */}
       {semVoluntario > 0 && (
-        <div className="flex items-center gap-3 bg-orange-500/10 border border-orange-500/20 rounded-lg px-4 py-3 mb-4 text-sm text-orange-400">
-          <UserX size={16} className="flex-shrink-0" />
-          <span>
-            <strong>{semVoluntario}</strong> lead{semVoluntario > 1 ? 's' : ''} sem voluntário atribuído no grupo.{' '}
-            <Link to="/equipe" className="underline hover:text-orange-300 transition-colors">
-              Distribuir agora →
-            </Link>
-          </span>
+        <div className="flex items-center justify-between gap-3 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 mb-4">
+          <div className="flex items-center gap-3 text-sm text-red-400">
+            <UserX size={16} className="flex-shrink-0" />
+            <span>
+              <strong>{semVoluntario}</strong> contato{semVoluntario > 1 ? 's' : ''} aguardando distribuição
+            </span>
+          </div>
+          <Link
+            to="/equipe"
+            className="text-xs bg-red-500/15 border border-red-500/25 text-red-400 px-3 py-1.5 rounded-lg hover:bg-red-500/25 transition-all font-medium flex-shrink-0"
+          >
+            Distribuir agora →
+          </Link>
         </div>
       )}
 
-      {/* SLA alerts */}
-      {(slaVencidos > 0 || slaAtencao > 0) && (
-        <div className="flex flex-wrap gap-2 mb-5">
-          {slaVencidos > 0 && (
-            <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-sm text-red-400">
-              <AlertTriangle size={15} />
-              <span><strong>{slaVencidos}</strong> SLA vencido{slaVencidos > 1 ? 's' : ''}</span>
-            </div>
-          )}
-          {slaAtencao > 0 && (
-            <div className="flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-3 py-2 text-sm text-yellow-400">
-              <AlertTriangle size={15} />
-              <span><strong>{slaAtencao}</strong> em atenção</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <MetricCard label="Ativos no Grupo"   value={totalAtivos}   sub="em acompanhamento"        valueColor="text-menta-light" />
-        <MetricCard label="Sem voluntário"     value={semVoluntario} sub="aguardando distribuição"  valueColor={semVoluntario > 0 ? 'text-orange-400' : 'text-offwhite'} />
-        <MetricCard label="Fora do SLA"        value={slaVencidos}   sub="sem contato após 48h"     valueColor={slaVencidos > 0 ? 'text-red-400' : 'text-offwhite'} />
-        <MetricCard label="SLA Atenção"        value={slaAtencao}    sub="prazo se esgotando"       valueColor={slaAtencao > 0 ? 'text-yellow-400' : 'text-offwhite'} />
+      {/* Summary cards — 5 KPIs */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+        <MetricCard label="Ativos no Grupo"    value={totalAtivos}      sub="em acompanhamento"              valueColor="text-menta-light" />
+        <MetricCard label="Sem voluntário"     value={semVoluntario}    sub="aguardando distribuição"        valueColor={semVoluntario > 0 ? 'text-orange-400' : 'text-offwhite'} />
+        <MetricCard label="Pendentes"          value={slaPendentes}     sub="aguardando 1º contato"          valueColor={slaPendentes > 0 ? 'text-yellow-400' : 'text-offwhite'} />
+        <MetricCard label="Fora do SLA"        value={slaForaDoPrazo}   sub="contato não realizado no prazo" valueColor={slaForaDoPrazo > 0 ? 'text-red-400' : 'text-offwhite'} />
+        <MetricCard label="Dentro do SLA"      value={slaDentroDoSLA}   sub="contato realizado no prazo"     valueColor={slaDentroDoSLA > 0 ? 'text-menta-light' : 'text-offwhite'} />
       </div>
 
       {/* Alertas SLA detalhados por voluntário */}
@@ -197,7 +192,7 @@ export default function DashboardCoordenador() {
               <h2 className="text-sm font-semibold text-offwhite">Alertas de SLA</h2>
             </div>
             <span className="text-xs bg-red-500/15 text-red-400 font-semibold px-2.5 py-1 rounded-full border border-red-500/20">
-              {contatosUrgentes.length} vencido{contatosUrgentes.length > 1 ? 's' : ''}
+              {slaForaDoPrazo} fora do SLA
             </span>
           </div>
           {alertasPorVol.map(v => (

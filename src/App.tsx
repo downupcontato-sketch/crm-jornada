@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'sonner'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { ViewAsProvider } from '@/contexts/ViewAsContext'
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute'
 import Login from '@/pages/Login'
 import SolicitarAcesso from '@/pages/SolicitarAcesso'
@@ -23,6 +24,7 @@ import DashboardEntrada from '@/pages/DashboardEntrada'
 import EsqueciSenha from '@/pages/EsqueciSenha'
 import ResetPassword from '@/pages/ResetPassword'
 import AcessoNegado from '@/pages/AcessoNegado'
+import Duplicatas from '@/pages/Duplicatas'
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30000, retry: 1 } } })
 
@@ -30,6 +32,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <ViewAsProvider>
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Navigate to="/login" replace />} />
@@ -44,7 +47,7 @@ export default function App() {
             <Route path="/pipeline" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador','linha_de_frente']}><Pipeline /></ProtectedRoute>} />
             <Route path="/pipeline/:etapa" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador','linha_de_frente']}><Pipeline /></ProtectedRoute>} />
             <Route path="/pipeline/:etapa/lead/:id" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador','linha_de_frente']}><Pipeline /></ProtectedRoute>} />
-            <Route path="/meus-contatos" element={<ProtectedRoute allowedRoles={['voluntario']}><MeusContatos /></ProtectedRoute>} />
+            <Route path="/meus-contatos" element={<ProtectedRoute allowedRoles={['voluntario','coordenador','lider','admin']}><MeusContatos /></ProtectedRoute>} />
             <Route path="/contato/:id" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador','voluntario','linha_de_frente']}><ContatoDetail /></ProtectedRoute>} />
             <Route path="/equipe" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador']}><Equipe /></ProtectedRoute>} />
             <Route path="/usuarios" element={<ProtectedRoute allowedRoles={['admin','coordenador']}><Usuarios /></ProtectedRoute>} />
@@ -54,10 +57,12 @@ export default function App() {
             <Route path="/dashboard/coordenador" element={<ProtectedRoute allowedRoles={['coordenador','admin','lider']}><DashboardCoordenador /></ProtectedRoute>} />
             <Route path="/relatorios" element={<ProtectedRoute allowedRoles={['admin','lider']}><Relatorios /></ProtectedRoute>} />
             <Route path="/dashboard/entrada" element={<ProtectedRoute allowedRoles={['admin','lider']}><DashboardEntrada /></ProtectedRoute>} />
+            <Route path="/duplicatas" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador']}><Duplicatas /></ProtectedRoute>} />
             <Route path="/acesso-negado" element={<AcessoNegado />} />
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
         </BrowserRouter>
+        </ViewAsProvider>
         <Toaster theme="dark" toastOptions={{ style: { background: '#0D2B35', border: '1px solid #1C3D4A', color: '#FFFCF2' } }} />
       </AuthProvider>
     </QueryClientProvider>

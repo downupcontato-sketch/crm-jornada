@@ -125,8 +125,13 @@ export interface Contact {
   pro_ver_confirmado_em: string | null
   data_batismo_agendado: string | null
   data_batismo_realizado: string | null
-  link_confirmado_em: string | null
+  link_confirmado_em: string | null  // DEPRECATED — usar data_envio_convite
   data_envio_convite: string | null
+  inscricao_confirmada: boolean
+  data_aguardando_resposta: string | null
+  timer_status: 'nenhum' | 'aguardando' | 'feedback_pendente'
+  duplicata_revisada: boolean
+  dado_reportado: boolean
   motivo_perda: MotivoPerdaLead | null
   observacao_perda: string | null
   perda_definitiva: boolean

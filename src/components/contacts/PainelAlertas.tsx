@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { AlertTriangle, Clock, Users, RefreshCw, ChevronRight, CheckCircle } from 'lucide-react'
+import { AlertTriangle, Clock, Users, RefreshCw, ChevronRight, CheckCircle, UserX } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { redistribuirLead } from '@/lib/distribuicao'
@@ -57,6 +58,22 @@ export function PainelAlertas() {
   const queryClient = useQueryClient()
   const [redistribuindo, setRedistribuindo] = useState<RedistribuirState | null>(null)
   const [resolvendoId, setResolvendoId] = useState<string | null>(null)
+
+  const { data: semVoluntario = 0 } = useQuery({
+    queryKey: ['pendentes-distribuicao', profile?.grupo],
+    queryFn: async () => {
+      let q = supabase
+        .from('contacts')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'ativo')
+        .is('voluntario_atribuido_id', null)
+      if (profile?.nivel === 'coordenador' && profile?.grupo) q = q.eq('grupo', profile.grupo)
+      const { count } = await q
+      return count ?? 0
+    },
+    enabled: !!profile,
+    refetchInterval: 60000,
+  })
 
   const { data: alertas, isLoading } = useQuery({
     queryKey: ['alertas-sla', profile?.grupo],
@@ -159,6 +176,19 @@ export function PainelAlertas() {
 
   return (
     <div className="space-y-4">
+      {/* Pendentes de distribuição */}
+      {semVoluntario > 0 && (
+        <div className="flex items-center justify-between gap-3 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3">
+          <div className="flex items-center gap-2 text-sm text-red-400">
+            <UserX size={15} className="flex-shrink-0" />
+            <span><strong>{semVoluntario}</strong> sem voluntário atribuído</span>
+          </div>
+          <Link to="/equipe" className="text-xs bg-red-500/15 border border-red-500/25 text-red-400 px-3 py-1.5 rounded-lg hover:bg-red-500/25 transition-all font-medium flex-shrink-0">
+            Distribuir →
+          </Link>
+        </div>
+      )}
+
       {/* Total badge */}
       <div className="flex items-center gap-2">
         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Alertas Ativos</span>

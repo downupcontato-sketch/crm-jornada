@@ -24,6 +24,7 @@ interface Props {
   onUpdated: (upd: Partial<Contact>) => void
   onFullPage?: () => void
   volNome?: string
+  onVolClick?: (volId: string) => void
 }
 
 const TIPO_AVATAR: Record<string, string> = {
@@ -39,7 +40,7 @@ const STATUS_BADGE: Record<string, string> = {
   arquivado:    'bg-gray-500/15 text-gray-400',
 }
 
-export function PipelineLeadDetail({ contact: initial, onUpdated, onFullPage, volNome }: Props) {
+export function PipelineLeadDetail({ contact: initial, onUpdated, onFullPage, volNome, onVolClick }: Props) {
   const { profile } = useAuth()
   const qc = useQueryClient()
   const [contact, setContact] = useState(initial)
@@ -202,8 +203,20 @@ export function PipelineLeadDetail({ contact: initial, onUpdated, onFullPage, vo
               <span className="text-xs text-muted-foreground">{FASE_LABELS[contact.fase_pipeline]}</span>
               {subLabel && <span className="text-xs text-muted-foreground/70">· {subLabel}</span>}
             </div>
-            {volNome && (
-              <p className="text-xs text-muted-foreground mt-1">Responsável: <span className="text-offwhite">{volNome}</span></p>
+            {volNome && contact.voluntario_atribuido_id && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Responsável:{' '}
+                {onVolClick ? (
+                  <button
+                    onClick={() => onVolClick(contact.voluntario_atribuido_id!)}
+                    className="text-offwhite hover:text-menta-light transition-colors underline-offset-2 hover:underline"
+                  >
+                    {volNome}
+                  </button>
+                ) : (
+                  <span className="text-offwhite">{volNome}</span>
+                )}
+              </p>
             )}
           </div>
         </div>

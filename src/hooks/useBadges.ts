@@ -8,9 +8,10 @@ export interface Badges {
   novosCadastros: number
   slaVencidos: number
   semVoluntario: number
+  duplicatas: number
 }
 
-const INITIAL: Badges = { usuariosPendentes: 0, novosCadastros: 0, slaVencidos: 0, semVoluntario: 0 }
+const INITIAL: Badges = { usuariosPendentes: 0, novosCadastros: 0, slaVencidos: 0, semVoluntario: 0, duplicatas: 0 }
 
 export function useBadges() {
   const { profile, isAdmin, isCoordenador, isVoluntario, nivel } = useAuth()
@@ -83,7 +84,29 @@ export function useBadges() {
         semVoluntario = count ?? 0
       }
 
-      setBadges({ usuariosPendentes, novosCadastros, slaVencidos, semVoluntario })
+      // 5. Duplicatas pendentes de revisão
+      let duplicatas = 0
+      if (isAdmin || isCoordenador || nivel === 'lider') {
+        let q = supabase
+          .from('contacts')
+          .select('telefone', { count: 'exact', head: false })
+          .not('status', 'eq', 'arquivado')
+          .eq('duplicata_revisada', false)
+        if (isCoordenador && !isAdmin && profile.grupo) {
+          q = q.eq('grupo', profile.grupo)
+        }
+        const { data } = await q
+        if (data) {
+          const map = new Map<string, number>()
+          for (const r of data) {
+            const tel = r.telefone.replace(/\D/g, '')
+            map.set(tel, (map.get(tel) ?? 0) + 1)
+          }
+          duplicatas = Array.from(map.values()).filter(n => n > 1).length
+        }
+      }
+
+      setBadges({ usuariosPendentes, novosCadastros, slaVencidos, semVoluntario, duplicatas })
     }, 300)
   }, [profile, isAdmin, isCoordenador, isVoluntario, nivel])
 

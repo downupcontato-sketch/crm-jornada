@@ -75,9 +75,9 @@ export const FASE_LABELS: Record<FasePipeline, string> = {
 
 export const SUBETAPA_LABELS: Record<string, string> = {
   // Contato (TENTATIVA_3 mantido apenas para exibição de histórico legado)
-  TENTATIVA_1:          'Aguardando 1ª resposta',
-  TENTATIVA_2:          'Aguardando 2ª resposta',
-  TENTATIVA_3:          '3ª Tentativa (legado)',
+  TENTATIVA_1:          'Primeiro contato',
+  TENTATIVA_2:          'Segunda tentativa',
+  TENTATIVA_3:          'Segunda tentativa',  // legado: exibe igual a TENTATIVA_2
   // Qualificação
   CONVERSA:             'Em conversa',
   PERFIL_CONFIRMADO:    'Perfil qualificado',
@@ -99,9 +99,7 @@ export const SUBETAPA_LABELS: Record<string, string> = {
 // Label do próximo passo para o botão "Avançar"
 export function proximaSubetapaLabel(c: Pick<Contact, 'fase_pipeline'|'subetapa_contato'|'subetapa_qualificacao'|'subetapa_encaminhamento'|'subetapa_batismo'>): string {
   const map: Record<string, string> = {
-    'CONTATO_INICIAL:TENTATIVA_1': '2ª tentativa de contato',
-    'CONTATO_INICIAL:TENTATIVA_2': '3ª tentativa de contato',
-    'CONTATO_INICIAL:TENTATIVA_3': 'Respondeu → Qualificação',
+    'CONTATO_INICIAL:TENTATIVA_1': 'Segunda tentativa',
     'QUALIFICACAO:CONVERSA':          'Perfil confirmado',
     'QUALIFICACAO:PERFIL_CONFIRMADO': 'Convite enviado',
     'QUALIFICACAO:CONVITE_ENVIADO':   'Aguardando PROVER',
@@ -127,7 +125,7 @@ export function trilhaProgresso(c: Contact): NoProgresso[] {
   const nos: NoProgresso[] = []
 
   // Contato Inicial
-  const subContatos = ['TENTATIVA_1','TENTATIVA_2','TENTATIVA_3'] as const
+  const subContatos = ['TENTATIVA_1','TENTATIVA_2'] as const
   const fasesAposContato: FasePipeline[] = ['QUALIFICACAO','AULAS','POS_AULA','BATIZADO']
   for (const sub of subContatos) {
     const isDone = fasesAposContato.includes(c.fase_pipeline) ||

@@ -15,6 +15,7 @@ const navItems = [
   { to: '/equipe',              icon: <Users size={20} />,           label: 'Minha Equipe',   roles: ['coordenador', 'admin', 'lider'] },
   { to: '/gestao/leads',        icon: <ListFilter size={20} />,      label: 'Gestão de Leads',roles: ['admin', 'lider', 'coordenador'] },
   { to: '/importacao',          icon: <Upload size={20} />,          label: 'Importar',       roles: ['admin', 'lider', 'coordenador'] },
+  { to: '/duplicatas',          icon: <GitMerge size={20} />,        label: 'Duplicatas',     roles: ['admin', 'lider', 'coordenador'] },
   { to: '/usuarios',            icon: <Settings size={20} />,        label: 'Usuários',       roles: ['admin', 'coordenador'] },
   { to: '/relatorios',          icon: <BarChart2 size={20} />,       label: 'Relatórios',     roles: ['admin', 'lider'] },
   { to: '/dashboard/entrada',   icon: <TrendingUp size={20} />,      label: 'Visão de Entrada', roles: ['admin', 'lider'] },
@@ -85,6 +86,11 @@ export function Sidebar() {
             {/* Badge: leads sem voluntário */}
             {item.to === '/equipe' && badges.semVoluntario > 0 && (
               <Badge count={badges.semVoluntario} color="bg-red-500" />
+            )}
+
+            {/* Badge: duplicatas pendentes */}
+            {item.to === '/duplicatas' && badges.duplicatas > 0 && (
+              <Badge count={badges.duplicatas} color="bg-red-500" />
             )}
           </NavLink>
         ))}

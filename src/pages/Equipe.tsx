@@ -1,8 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, X, Phone } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { useViewAs } from '@/contexts/ViewAsContext'
 import { Layout } from '@/components/layout/Layout'
 import { PainelAlertas } from '@/components/contacts/PainelAlertas'
 import { redistribuirLead } from '@/lib/distribuicao'
@@ -78,6 +80,8 @@ function LeadRow({ contact: c, onOpen }: { contact: any; onOpen: (c: any) => voi
 
 export default function Equipe() {
   const { profile } = useAuth()
+  const { setViewingAs } = useViewAs()
+  const navigate = useNavigate()
   const qc = useQueryClient()
   const [redistribuindo, setRedistribuindo] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'equipe'|'alertas'>('alertas')
@@ -202,11 +206,20 @@ export default function Equipe() {
                           <p className="text-sm font-semibold text-offwhite">{vol.nome}</p>
                           <p className="text-xs text-muted-foreground">{vol.email}</p>
                         </div>
-                        {venc>0 && (
-                          <span className="text-xs bg-red-400/10 text-red-400 border border-red-400/20 px-2 py-0.5 rounded-full flex-shrink-0">
-                            {venc} vencido{venc>1?'s':''}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {venc>0 && (
+                            <span className="text-xs bg-red-400/10 text-red-400 border border-red-400/20 px-2 py-0.5 rounded-full">
+                              {venc} vencido{venc>1?'s':''}
+                            </span>
+                          )}
+                          <button
+                            onClick={() => { setViewingAs({ id: vol.id, nome: vol.nome }); navigate('/meus-contatos') }}
+                            className="text-[10px] text-muted-foreground/60 hover:text-menta-light border border-border hover:border-menta-light/40 px-1.5 py-0.5 rounded transition-all"
+                            title="Ver como este voluntário"
+                          >
+                            Ver como
+                          </button>
+                        </div>
                       </div>
 
                       {/* Barra semântica */}

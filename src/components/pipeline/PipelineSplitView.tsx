@@ -23,6 +23,7 @@ export function PipelineSplitView() {
   const fase = etapa ? SLUG_FASE[etapa] : null
   const [splitMode, setSplitMode] = useState<'split' | 'full'>('split')
   const [grupoFiltro, setGrupoFiltro] = useState<ContactGrupo | 'todos'>('todos')
+  const [volFiltro, setVolFiltro] = useState<string | null>(null)
 
   const { data: contacts = [], isLoading } = useQuery({
     queryKey: ['pipeline-split', fase, grupoFiltro],
@@ -145,9 +146,11 @@ export function PipelineSplitView() {
           )}>
             <PipelineLeadList
               fase={fase}
-              contacts={contacts}
+              contacts={volFiltro ? contacts.filter(c => c.voluntario_atribuido_id === volFiltro) : contacts}
               isLoading={isLoading}
               volMap={volMap}
+              volFiltro={volFiltro}
+              onClearVolFiltro={() => setVolFiltro(null)}
             />
           </div>
         )}
@@ -160,6 +163,7 @@ export function PipelineSplitView() {
               onUpdated={handleUpdated}
               onFullPage={() => setSplitMode(m => m === 'full' ? 'split' : 'full')}
               volNome={selectedContact.voluntario_atribuido_id ? volMap[selectedContact.voluntario_atribuido_id] : undefined}
+              onVolClick={volId => setVolFiltro(v => v === volId ? null : volId)}
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">

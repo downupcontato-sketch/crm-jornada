@@ -62,9 +62,11 @@ interface Props {
   contacts: Contact[]
   isLoading: boolean
   volMap?: Record<string, string>
+  volFiltro?: string | null
+  onClearVolFiltro?: () => void
 }
 
-export function PipelineLeadList({ fase, contacts, isLoading, volMap }: Props) {
+export function PipelineLeadList({ fase, contacts, isLoading, volMap, volFiltro, onClearVolFiltro }: Props) {
   const navigate = useNavigate()
   const { id: selectedId } = useParams<{ id: string }>()
 
@@ -123,6 +125,14 @@ export function PipelineLeadList({ fase, contacts, isLoading, volMap }: Props) {
           )}
         </div>
         <p className="text-xs text-muted-foreground mt-0.5">{contacts.length} leads</p>
+        {volFiltro && volMap?.[volFiltro] && onClearVolFiltro && (
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <span className="text-[10px] text-menta-light bg-menta-light/10 border border-menta-light/20 px-2 py-0.5 rounded-full">
+              Voluntário: {volMap[volFiltro].split(' ')[0]}
+            </span>
+            <button onClick={onClearVolFiltro} className="text-[10px] text-muted-foreground hover:text-red-400 transition-colors">✕</button>
+          </div>
+        )}
       </div>
 
       {/* Chips */}

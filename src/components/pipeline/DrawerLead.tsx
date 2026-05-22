@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { X, Phone, ChevronRight, ChevronLeft, AlertTriangle, Clock } from 'lucide-react'
+import { X, Phone, ChevronRight, ChevronLeft, AlertTriangle, Clock, Flag } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
@@ -11,6 +11,7 @@ import {
   FASE_LABELS, SUBETAPA_LABELS,
 } from '@/lib/pipeline'
 import { ModalPerda } from './ModalPerda'
+import { HistoricoTentativas } from './HistoricoTentativas'
 import type { Contact, LeadHistorico } from '@/types/database'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -35,7 +36,7 @@ export function Spinner() {
 }
 
 export function ContatoInicialSection({
-  contact, waSent, advancing, onWa, onRespondeu, onNaoRespondeuAvancar, onArquivar,
+  contact, waSent, advancing, onWa, onRespondeu, onNaoRespondeuAvancar, onArquivar, onNumeroInvalido,
 }: {
   contact: Contact
   waSent: boolean
@@ -44,11 +45,14 @@ export function ContatoInicialSection({
   onRespondeu: () => void
   onNaoRespondeuAvancar: () => void
   onArquivar: () => void
+  onNumeroInvalido?: () => void
 }) {
   const [subOpcao, setSubOpcao] = useState<null | 'sim' | 'nao'>(null)
+  const [confirmNumeroInvalido, setConfirmNumeroInvalido] = useState(false)
   const timer = calcularTimerResposta(contact)
   const isTentativa2 = contact.subetapa_contato === 'TENTATIVA_2'
   const tentativas = contact.tentativas_contato ?? 0
+  const isFeedbackPendente = timer === 'feedback_pendente' || contact.timer_status === 'feedback_pendente'
 
   // State A: no first WA sent yet
   if (!contact.data_primeiro_contato && !isTentativa2) {
@@ -71,6 +75,33 @@ export function ContatoInicialSection({
           <p className="text-xs text-muted-foreground text-center">
             Tentativa registrada. Aguarde a resposta e volte aqui.
           </p>
+        )}
+        {onNumeroInvalido && !confirmNumeroInvalido && (
+          <button
+            onClick={() => setConfirmNumeroInvalido(true)}
+            className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors w-full text-center"
+          >
+            Número inválido ou inexistente?
+          </button>
+        )}
+        {onNumeroInvalido && confirmNumeroInvalido && (
+          <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2.5 space-y-2">
+            <p className="text-xs text-red-400">Confirmar que este número não existe ou não tem WhatsApp?</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setConfirmNumeroInvalido(false)}
+                className="flex-1 py-1.5 rounded-lg text-xs border border-border text-muted-foreground hover:text-offwhite transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={onNumeroInvalido}
+                className="flex-1 py-1.5 rounded-lg text-xs bg-red-500/15 border border-red-500/30 text-red-400 hover:bg-red-500/25 transition-all font-medium"
+              >
+                Confirmar e arquivar
+              </button>
+            </div>
+          </div>
         )}
       </div>
     )
@@ -108,19 +139,30 @@ export function ContatoInicialSection({
   // State B / D: WA sent, awaiting "Houve resposta?"
   return (
     <div className="px-5 pt-4 space-y-3">
-      {timer && (
-        <div className={cn(
-          'flex items-center gap-2 rounded-lg px-3 py-2 text-xs border',
-          timer === 'feedback_pendente'
-            ? 'bg-orange-400/10 border-orange-400/20 text-orange-400'
-            : 'bg-blue-400/10 border-blue-400/20 text-blue-400',
-        )}>
-          <Clock size={12} />
-          {timer === 'feedback_pendente'
-            ? 'Feedback pendente — mais de 48h desde o 1º contato'
-            : 'Aguardando resposta — dentro do prazo'}
+      {isFeedbackPendente ? (
+        <div className="rounded-lg border border-yellow-400/30 bg-yellow-400/10 px-3 py-3 space-y-2">
+          <div className="flex items-center gap-2 text-yellow-400 text-xs font-semibold">
+            <Clock size={13} />
+            Já passaram mais de 48h desde o seu primeiro contato!
+          </div>
+          <p className="text-[11px] text-yellow-400/80 leading-snug">
+            Registre aqui o resultado — respondeu ou não respondeu.
+          </p>
+          {!subOpcao && (
+            <button
+              onClick={() => setSubOpcao('sim')}
+              className="w-full py-2 rounded-lg bg-yellow-400/15 border border-yellow-400/30 text-yellow-400 text-xs font-medium hover:bg-yellow-400/25 transition-all"
+            >
+              Registrar resultado agora →
+            </button>
+          )}
         </div>
-      )}
+      ) : timer === 'aguardando' ? (
+        <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs border bg-blue-400/10 border-blue-400/20 text-blue-400">
+          <Clock size={12} />
+          Aguardando resposta — dentro do prazo
+        </div>
+      ) : null}
 
       <p className="text-sm font-medium text-offwhite">Houve resposta?</p>
 
@@ -196,7 +238,7 @@ export function ContatoInicialSection({
 }
 
 export function QualificacaoSection({
-  contact, advancing, onAvancar, onEnviarConvite, onNaoQualificada, onInscricaoConfirmada,
+  contact, advancing, onAvancar, onEnviarConvite, onNaoQualificada, onInscricaoConfirmada, onToggleInscricaoConfirmada,
 }: {
   contact: Contact
   advancing: boolean
@@ -204,6 +246,7 @@ export function QualificacaoSection({
   onEnviarConvite: (dataEnvio: string) => Promise<void>
   onNaoQualificada: () => void
   onInscricaoConfirmada: () => void
+  onToggleInscricaoConfirmada?: (val: boolean) => void
 }) {
   const [resposta, setResposta] = useState<null | 'sim' | 'nao'>(null)
   const [dataEnvio, setDataEnvio] = useState('')
@@ -295,12 +338,26 @@ export function QualificacaoSection({
             {format(new Date(dataEnvioExistente), "dd/MM/yy 'às' HH:mm", { locale: ptBR })}
           </div>
         )}
+        {onToggleInscricaoConfirmada && (
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={contact.inscricao_confirmada ?? false}
+              onChange={e => onToggleInscricaoConfirmada(e.target.checked)}
+              className="w-4 h-4 rounded border-border accent-menta-light"
+            />
+            <span className="text-sm text-offwhite">Inscrição no PROVER confirmada</span>
+            {contact.inscricao_confirmada && (
+              <span className="text-[10px] bg-menta-light/15 text-menta-light border border-menta-light/30 px-1.5 py-0.5 rounded-full font-medium">Inscrita</span>
+            )}
+          </label>
+        )}
         <button
           onClick={onInscricaoConfirmada}
           disabled={advancing}
           className="w-full zion-btn-primary flex items-center justify-center gap-2 py-3 text-sm"
         >
-          {advancing ? <Spinner /> : <><ChevronRight size={16} /> Inscrição confirmada ✓</>}
+          {advancing ? <Spinner /> : <><ChevronRight size={16} /> Avançar para Aulas</>}
         </button>
       </div>
     )
@@ -396,6 +453,11 @@ export function DrawerLead({ contact: initial, onClose, onUpdated }: Props) {
   const [advancing, setAdvancing] = useState(false)
   const [showPerda, setShowPerda] = useState(false)
   const [waSent, setWaSent] = useState(false)
+  const [activeTab, setActiveTab] = useState<'pipeline' | 'dados' | 'historico' | 'interacoes'>('pipeline')
+  const [showReporte, setShowReporte] = useState(false)
+  const [motivosReporte, setMotivosReporte] = useState<string[]>([])
+  const [obsReporte, setObsReporte] = useState('')
+  const [enviandoReporte, setEnviandoReporte] = useState(false)
 
   const sla = calcularSLAFase(contact)
   const freq = calcularFrequencia(contact)
@@ -411,6 +473,22 @@ export function DrawerLead({ contact: initial, onClose, onUpdated }: Props) {
         .order('created_at', { ascending: false })
         .limit(20)
       return (data ?? []) as (LeadHistorico & { profiles: { nome: string } | null })[]
+    },
+  })
+
+  const { data: interactions = [] } = useQuery({
+    queryKey: ['lead-interactions', contact.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('interactions')
+        .select('*,profiles(nome)')
+        .eq('contact_id', contact.id)
+        .order('created_at', { ascending: false })
+        .limit(30)
+      return (data ?? []) as {
+        id: string; tipo: string; resultado: string; observacao: string | null
+        created_at: string; profiles: { nome: string } | null
+      }[]
     },
   })
 
@@ -463,6 +541,8 @@ export function DrawerLead({ contact: initial, onClose, onUpdated }: Props) {
       if (!contact.data_primeiro_contato) {
         upd.data_primeiro_contato = agora
         upd.sla_status = 'ok'
+        upd.data_aguardando_resposta = agora
+        upd.timer_status = 'aguardando'
       }
       await supabase.from('interactions').insert({
         contact_id: contact.id,
@@ -511,6 +591,62 @@ export function DrawerLead({ contact: initial, onClose, onUpdated }: Props) {
       toast.error('Erro ao registrar convite')
     } finally {
       setAdvancing(false)
+    }
+  }
+
+  async function handleNumeroInvalido() {
+    if (!profile) return
+    try {
+      const upd: Partial<Contact> = {
+        status: 'arquivado',
+        fase_pipeline: 'PERDIDO',
+        motivo_perda: 'NUMERO_INCORRETO',
+        updated_at: new Date().toISOString(),
+      }
+      await supabase.from('contacts').update(upd).eq('id', contact.id)
+      await supabase.from('lead_historico').insert({
+        contact_id: contact.id,
+        user_id: profile.id,
+        tipo: 'PERDA',
+        descricao: 'Arquivado — número inválido ou inexistente',
+      })
+      onUpdated(upd)
+      qc.invalidateQueries({ queryKey: ['meus-contatos', profile.id] })
+      onClose()
+    } catch {
+      toast.error('Erro ao arquivar contato')
+    }
+  }
+
+  async function handleToggleInscricaoConfirmada(val: boolean) {
+    const upd: Partial<Contact> = { inscricao_confirmada: val }
+    await supabase.from('contacts').update(upd).eq('id', contact.id)
+    setContact(c => ({ ...c, ...upd }))
+    onUpdated(upd)
+  }
+
+  async function handleReportar() {
+    if (!profile || motivosReporte.length === 0) return
+    setEnviandoReporte(true)
+    try {
+      const descricao = `Dado incorreto reportado — ${motivosReporte.join(', ')}${obsReporte ? `: ${obsReporte}` : ''}`
+      await supabase.from('contacts').update({ dado_reportado: true }).eq('id', contact.id)
+      await supabase.from('lead_historico').insert({
+        contact_id: contact.id,
+        user_id: profile.id,
+        tipo: 'REPORTE',
+        descricao,
+      })
+      setContact(c => ({ ...c, dado_reportado: true }))
+      onUpdated({ dado_reportado: true })
+      toast.success('Reporte enviado para o coordenador.')
+      setShowReporte(false)
+      setMotivosReporte([])
+      setObsReporte('')
+    } catch {
+      toast.error('Erro ao enviar reporte.')
+    } finally {
+      setEnviandoReporte(false)
     }
   }
 
@@ -587,14 +723,48 @@ export function DrawerLead({ contact: initial, onClose, onUpdated }: Props) {
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1 flex-shrink-0">
-            <X size={20} />
-          </button>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              onClick={() => setShowReporte(true)}
+              title="Reportar dado incorreto"
+              className={cn(
+                'p-1.5 rounded-lg transition-colors',
+                contact.dado_reportado
+                  ? 'text-amber-400'
+                  : 'text-muted-foreground/50 hover:text-amber-400 hover:bg-amber-400/10',
+              )}
+            >
+              <Flag size={16} />
+            </button>
+            <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1 flex-shrink-0">
+              <X size={20} />
+            </button>
+          </div>
+        </div>
+
+        {/* Tab bar */}
+        <div className="flex border-b border-border flex-shrink-0 bg-card">
+          {(['pipeline', 'dados', 'historico', 'interacoes'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={cn(
+                'flex-1 py-2.5 text-xs font-medium transition-all border-b-2',
+                activeTab === tab
+                  ? 'border-menta-light text-menta-light'
+                  : 'border-transparent text-muted-foreground hover:text-offwhite',
+              )}
+            >
+              {{ pipeline: 'Pipeline', dados: 'Dados', historico: 'Histórico', interacoes: 'Interações' }[tab]}
+            </button>
+          ))}
         </div>
 
         <div className="flex-1 overflow-y-auto">
 
-          {/* Phase stepper + current step card */}
+          {/* ── Tab: Pipeline ── */}
+          {activeTab === 'pipeline' && (
+            <>
           <PhaseStepper contact={contact} />
           <CurrentStepCard contact={contact} />
 
@@ -608,6 +778,7 @@ export function DrawerLead({ contact: initial, onClose, onUpdated }: Props) {
               onRespondeu={handleConversa}
               onNaoRespondeuAvancar={handleAvancar}
               onArquivar={() => setShowPerda(true)}
+              onNumeroInvalido={handleNumeroInvalido}
             />
           )}
 
@@ -620,6 +791,7 @@ export function DrawerLead({ contact: initial, onClose, onUpdated }: Props) {
               onEnviarConvite={handleEnviarConvite}
               onNaoQualificada={() => setShowPerda(true)}
               onInscricaoConfirmada={handleInscricaoConfirmada}
+              onToggleInscricaoConfirmada={handleToggleInscricaoConfirmada}
             />
           )}
 
@@ -709,76 +881,99 @@ export function DrawerLead({ contact: initial, onClose, onUpdated }: Props) {
             </div>
           </div>
 
-          {/* Dados do lead */}
-          <div className="px-5 pt-4 space-y-2">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Dados</p>
-            <div className="space-y-1.5 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Telefone</span>
-                <span className="text-offwhite">{formatPhone(contact.telefone)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Grupo</span>
-                <span className="text-offwhite">{getGrupoLabel(contact.grupo)}</span>
-              </div>
-              {contact.data_primeiro_contato && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">1º contato</span>
-                  <span className="text-offwhite">
-                    {format(new Date(contact.data_primeiro_contato), "dd/MM/yy 'às' HH:mm", { locale: ptBR })}
-                  </span>
+            </>
+          )}
+
+          {/* ── Tab: Dados ── */}
+          {activeTab === 'dados' && (
+            <div className="px-5 pt-4 pb-6 space-y-3">
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between py-1.5 border-b border-border/40">
+                  <span className="text-muted-foreground">Telefone</span>
+                  <span className="text-offwhite">{formatPhone(contact.telefone)}</span>
                 </div>
-              )}
+                <div className="flex justify-between py-1.5 border-b border-border/40">
+                  <span className="text-muted-foreground">Grupo</span>
+                  <span className="text-offwhite">{getGrupoLabel(contact.grupo)}</span>
+                </div>
+                {contact.data_primeiro_contato && (
+                  <div className="flex justify-between py-1.5 border-b border-border/40">
+                    <span className="text-muted-foreground">1º contato</span>
+                    <span className="text-offwhite">
+                      {format(new Date(contact.data_primeiro_contato), "dd/MM/yy 'às' HH:mm", { locale: ptBR })}
+                    </span>
+                  </div>
+                )}
+                {contact.data_distribuicao && (
+                  <div className="flex justify-between py-1.5 border-b border-border/40">
+                    <span className="text-muted-foreground">Distribuído em</span>
+                    <span className="text-offwhite">
+                      {format(new Date(contact.data_distribuicao), "dd/MM/yy", { locale: ptBR })}
+                    </span>
+                  </div>
+                )}
+              </div>
               {contact.observacoes && (
                 <div>
-                  <span className="text-muted-foreground">Obs:</span>
-                  <p className="text-offwhite text-xs mt-0.5">{contact.observacoes}</p>
+                  <p className="text-xs text-muted-foreground mb-1">Observações</p>
+                  <p className="text-sm text-offwhite bg-muted/20 rounded-lg px-3 py-2">{contact.observacoes}</p>
                 </div>
               )}
-            </div>
-          </div>
-
-          {/* WhatsApp direto — for phases after CONTATO_INICIAL */}
-          {contact.fase_pipeline !== 'CONTATO_INICIAL' && (
-            <div className="px-5 pt-4">
-              <a
-                href={`https://wa.me/55${contact.telefone.replace(/\D/g, '')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-sm font-medium border border-emerald-400/30 text-emerald-400 bg-emerald-400/10 hover:bg-emerald-400/20 transition-all"
-              >
-                <Phone size={14} />Abrir WhatsApp
-              </a>
+              {contact.fase_pipeline !== 'CONTATO_INICIAL' && (
+                <a
+                  href={`https://wa.me/55${contact.telefone.replace(/\D/g, '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg text-sm font-medium border border-emerald-400/30 text-emerald-400 bg-emerald-400/10 hover:bg-emerald-400/20 transition-all"
+                >
+                  <Phone size={14} />Abrir WhatsApp
+                </a>
+              )}
             </div>
           )}
 
-          {/* Histórico */}
-          <div className="px-5 pt-4 pb-4">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Histórico</p>
-            {!historico?.length ? (
-              <p className="text-xs text-muted-foreground/50 text-center py-4">Nenhum registro ainda.</p>
-            ) : (
-              <div className="space-y-2">
-                {historico.map(h => {
-                  const meta = TIPO_HIST[h.tipo] ?? { label: h.tipo, cor: 'text-muted-foreground' }
-                  return (
-                    <div key={h.id} className="flex gap-2 text-xs">
-                      <span className={cn('font-medium flex-shrink-0', meta.cor)}>{meta.label}</span>
-                      <span className="text-muted-foreground flex-1">{h.descricao}</span>
-                      <span className="text-muted-foreground/50 flex-shrink-0">
-                        {format(new Date(h.created_at), 'dd/MM HH:mm', { locale: ptBR })}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
+          {/* ── Tab: Histórico ── */}
+          {activeTab === 'historico' && (
+            <div className="px-5 pt-4 pb-6">
+              <HistoricoTentativas contactId={contact.id} />
+            </div>
+          )}
+
+          {/* ── Tab: Interações ── */}
+          {activeTab === 'interacoes' && (
+            <div className="px-5 pt-4 pb-6 space-y-2">
+              {!interactions.length ? (
+                <p className="text-xs text-muted-foreground/50 text-center py-8">Nenhuma interação registrada.</p>
+              ) : interactions.map(intr => (
+                <div key={intr.id} className="bg-muted/20 rounded-lg px-3 py-2.5 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-offwhite capitalize">{intr.tipo}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {format(new Date(intr.created_at), "dd/MM 'às' HH:mm", { locale: ptBR })}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium',
+                      intr.resultado === 'respondeu' || intr.resultado === 'avancou'
+                        ? 'bg-emerald-400/15 text-emerald-400'
+                        : 'bg-muted/30 text-muted-foreground'
+                    )}>{intr.resultado}</span>
+                    {intr.profiles?.nome && (
+                      <span className="text-[10px] text-muted-foreground">{intr.profiles.nome.split(' ')[0]}</span>
+                    )}
+                  </div>
+                  {intr.observacao && (
+                    <p className="text-xs text-muted-foreground">{intr.observacao}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Footer — Registrar perda */}
+        {/* Footer fixo — Registrar perda */}
         {!['BATIZADO', 'PERDIDO', 'REENCAMINHADO'].includes(contact.fase_pipeline) && (
-          <div className="px-5 py-3 border-t border-border flex-shrink-0">
+          <div className="px-5 py-3 border-t border-border/60 flex-shrink-0 bg-[#0D2B35] shadow-[0_-4px_12px_rgba(0,0,0,0.3)]">
             <button
               onClick={() => setShowPerda(true)}
               className="flex items-center gap-1.5 text-xs text-red-400/60 hover:text-red-400 transition-colors"
@@ -788,6 +983,49 @@ export function DrawerLead({ contact: initial, onClose, onUpdated }: Props) {
           </div>
         )}
       </div>
+
+      {showReporte && (
+        <div className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setShowReporte(false)} />
+          <div className="relative bg-card border border-border rounded-xl w-full max-w-sm p-5 space-y-4 z-10">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-offwhite">Reportar dado incorreto</h3>
+              <button onClick={() => setShowReporte(false)} className="text-muted-foreground hover:text-foreground">
+                <X size={16} />
+              </button>
+            </div>
+            <div className="space-y-2">
+              {['Nome incorreto', 'Telefone inválido', 'Grupo errado', 'Outro'].map(motivo => (
+                <label key={motivo} className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={motivosReporte.includes(motivo)}
+                    onChange={e => setMotivosReporte(prev =>
+                      e.target.checked ? [...prev, motivo] : prev.filter(m => m !== motivo)
+                    )}
+                    className="w-4 h-4 rounded border-border accent-amber-400"
+                  />
+                  <span className="text-sm text-offwhite">{motivo}</span>
+                </label>
+              ))}
+            </div>
+            <textarea
+              value={obsReporte}
+              onChange={e => setObsReporte(e.target.value)}
+              placeholder="Observação opcional..."
+              rows={2}
+              className="w-full bg-muted/30 border border-border rounded-lg px-3 py-2 text-sm text-offwhite placeholder-muted-foreground/50 focus:outline-none focus:border-amber-400/50 resize-none"
+            />
+            <button
+              onClick={handleReportar}
+              disabled={enviandoReporte || motivosReporte.length === 0}
+              className="w-full py-2.5 rounded-lg text-sm font-medium bg-amber-400/15 border border-amber-400/30 text-amber-400 hover:bg-amber-400/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {enviandoReporte ? 'Enviando…' : 'Enviar reporte'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {showPerda && (
         <ModalPerda
