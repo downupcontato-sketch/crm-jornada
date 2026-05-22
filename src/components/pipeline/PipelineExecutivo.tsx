@@ -8,7 +8,7 @@ import { cn, getGrupoLabel } from '@/lib/utils'
 import { calcularSLAFase, FASE_LABELS } from '@/lib/pipeline'
 import { FASE_SLUG } from '@/lib/pipelineRoutes'
 import { CardFaseExecutivo } from './CardFaseExecutivo'
-import type { ContactGrupo, FasePipeline } from '@/types/database'
+import type { Contact, ContactGrupo, FasePipeline } from '@/types/database'
 
 const FASES_ATIVAS: FasePipeline[] = ['CONTATO_INICIAL', 'QUALIFICACAO', 'AULAS', 'POS_AULA']
 const GRUPOS: ContactGrupo[] = ['rise', 'flow', 'vox', 'ek', 'zion_geral']

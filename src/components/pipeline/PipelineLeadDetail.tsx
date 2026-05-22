@@ -392,7 +392,7 @@ export function PipelineLeadDetail({ contact: initial, onUpdated, onFullPage, vo
         <ModalRegistroContato
           contact={contact}
           onClose={() => setShowRegistro(false)}
-          onSaved={() => { qc.invalidateQueries({ queryKey: ['lead-historico', contact.id] }) }}
+          onUpdated={upd => { patch(upd); qc.invalidateQueries({ queryKey: ['lead-historico', contact.id] }) }}
         />
       )}
     </div>
