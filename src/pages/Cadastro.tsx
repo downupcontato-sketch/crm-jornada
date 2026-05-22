@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { verificarDuplicata, distribuirLead, mesclarLeads, type ResultadoDedup } from '@/lib/distribuicao'
 import { ModalDuplicata } from '@/components/contacts/ModalDuplicata'
 import { toast } from 'sonner'
+import { DEFAULT_CHURCH_ID } from '@/lib/constants/church'
 import type { ContactTipo, ContactGrupo } from '@/types/database'
 
 const schema = z.object({
@@ -62,6 +63,7 @@ export default function Cadastro() {
         autorizacao_contato: data.autorizacao_contato,
         captador_id: profile?.id ?? null,
         culto_captacao: new Date().toISOString().split('T')[0],
+        church_id: DEFAULT_CHURCH_ID,
         etapa_atual: 3,
         fase_pipeline: 'CONTATO_INICIAL',
         subetapa_contato: 'TENTATIVA_1',
@@ -143,6 +145,7 @@ export default function Cadastro() {
         idade: pendingFormData.idade ?? null,
         captador_id: profile?.id ?? null,
         culto_captacao: new Date().toISOString().split('T')[0],
+        church_id: DEFAULT_CHURCH_ID,
         etapa_atual: 3,
         fase_pipeline: 'CONTATO_INICIAL',
         subetapa_contato: 'TENTATIVA_1',
