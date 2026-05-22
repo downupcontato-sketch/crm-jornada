@@ -4,14 +4,13 @@ import { Search, Phone } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { Layout } from '@/components/layout/Layout'
-import { ContactCard } from '@/components/contacts/ContactCard'
 import { DrawerLead } from '@/components/pipeline/DrawerLead'
 import { cn, getTipoBadgeColor, getTipoLabel } from '@/lib/utils'
 import { calcularSLAFase, formatarSLALabel, FASE_LABELS, SUBETAPA_LABELS } from '@/lib/pipeline'
 import type { Contact, FasePipeline } from '@/types/database'
 
 type Filter   = 'todos' | 'ativos' | 'sla_vencido' | 'sem_resposta'
-type ViewMode = 'lista' | 'cards' | 'kanban'
+type ViewMode = 'kanban' | 'lista'
 
 const FASES_KANBAN: { key: FasePipeline; label: string; accent: string }[] = [
   { key: 'CONTATO_INICIAL', label: 'Contato Inicial', accent: 'border-blue-500/40 text-blue-400' },
@@ -30,16 +29,6 @@ function IconList() {
   )
 }
 
-function IconCards() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-      <rect x="1" y="1" width="6" height="6" rx="1.5" fill="currentColor"/>
-      <rect x="9" y="1" width="6" height="6" rx="1.5" fill="currentColor"/>
-      <rect x="1" y="9" width="6" height="6" rx="1.5" fill="currentColor"/>
-      <rect x="9" y="9" width="6" height="6" rx="1.5" fill="currentColor"/>
-    </svg>
-  )
-}
 
 function IconKanban() {
   return (
@@ -93,12 +82,12 @@ export default function MeusContatos() {
   const qc = useQueryClient()
   const [search, setSearch]         = useState('')
   const [filter, setFilter]         = useState<Filter>('ativos')
-  const [viewMode, setViewMode]     = useState<ViewMode>('lista')
+  const [viewMode, setViewMode]     = useState<ViewMode>('kanban')
   const [drawerContact, setDrawerContact] = useState<Contact | null>(null)
 
   useEffect(() => {
     const saved = localStorage.getItem('voluntario-view-mode') as ViewMode | null
-    if (saved) setViewMode(saved)
+    if (saved === 'kanban' || saved === 'lista') setViewMode(saved)
   }, [])
 
   function toggleView(mode: ViewMode) {
@@ -186,24 +175,6 @@ export default function MeusContatos() {
         </div>
         <div className="flex items-center gap-1 bg-muted/30 border border-border rounded-xl p-1">
           <button
-            onClick={() => toggleView('lista')}
-            className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
-              viewMode === 'lista' ? 'bg-card text-offwhite shadow-sm border border-border' : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            <IconList /> Lista
-          </button>
-          <button
-            onClick={() => toggleView('cards')}
-            className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
-              viewMode === 'cards' ? 'bg-card text-offwhite shadow-sm border border-border' : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            <IconCards /> Cards
-          </button>
-          <button
             onClick={() => toggleView('kanban')}
             className={cn(
               'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
@@ -211,6 +182,15 @@ export default function MeusContatos() {
             )}
           >
             <IconKanban /> Kanban
+          </button>
+          <button
+            onClick={() => toggleView('lista')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all',
+              viewMode === 'lista' ? 'bg-card text-offwhite shadow-sm border border-border' : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <IconList /> Lista
           </button>
         </div>
       </div>
@@ -334,15 +314,6 @@ export default function MeusContatos() {
               })}
             </tbody>
           </table>
-        </div>
-      ) : (
-        /* ── Cards ── */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {filtered.map(c => (
-            <div key={c.id} onClick={() => openDrawer(c)} className="cursor-pointer">
-              <ContactCard contact={c} />
-            </div>
-          ))}
         </div>
       )}
 
