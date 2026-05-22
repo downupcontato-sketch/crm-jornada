@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { X, Phone, ChevronRight, AlertTriangle, Clock } from 'lucide-react'
+import { X, Phone, ChevronRight, ChevronLeft, AlertTriangle, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
@@ -493,20 +493,29 @@ export function DrawerLead({ contact: initial, onClose, onUpdated }: Props) {
 
         {/* Header */}
         <div className="flex items-start justify-between px-5 py-4 border-b border-border flex-shrink-0">
-          <div className="flex-1 min-w-0">
-            <h2 className="text-base font-semibold text-offwhite truncate">{contact.nome}</h2>
-            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-              <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', getTipoBadgeColor(contact.tipo))}>
-                {getTipoLabel(contact.tipo)}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {subetapaLabel ?? FASE_LABELS[contact.fase_pipeline]}
-              </span>
-              {contact.fase_pipeline === 'CONTATO_INICIAL' && !contact.data_primeiro_contato && sla !== 'ok' && (
-                <span className={cn('text-xs font-medium', sla === 'over' ? 'text-red-400' : 'text-yellow-400')}>
-                  SLA {sla === 'over' ? '⚠⚠' : '⚠'}
+          <div className="flex items-start gap-2 flex-1 min-w-0">
+            <button
+              onClick={onClose}
+              className="flex items-center gap-1 text-muted-foreground hover:text-offwhite transition-colors flex-shrink-0 mt-0.5"
+            >
+              <ChevronLeft size={18} />
+              <span className="text-xs font-medium">Voltar</span>
+            </button>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-base font-semibold text-offwhite truncate">{contact.nome}</h2>
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                <span className={cn('text-[10px] px-1.5 py-0.5 rounded-full font-medium', getTipoBadgeColor(contact.tipo))}>
+                  {getTipoLabel(contact.tipo)}
                 </span>
-              )}
+                <span className="text-xs text-muted-foreground">
+                  {subetapaLabel ?? FASE_LABELS[contact.fase_pipeline]}
+                </span>
+                {contact.fase_pipeline === 'CONTATO_INICIAL' && !contact.data_primeiro_contato && sla !== 'ok' && (
+                  <span className={cn('text-xs font-medium', sla === 'over' ? 'text-red-400' : 'text-yellow-400')}>
+                    SLA {sla === 'over' ? '⚠⚠' : '⚠'}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1 flex-shrink-0">
