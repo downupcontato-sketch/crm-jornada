@@ -263,7 +263,7 @@ export default function MeusContatos() {
         </div>
       ) : !filtered.length ? (
         <div className="text-center py-16 text-muted-foreground text-sm">Nenhum contato encontrado.</div>
-      ) : viewMode === 'lista' ? (
+      ) : (
         /* ── Lista ── */
         <div className="zion-card p-0 overflow-hidden">
           <table className="w-full text-sm">
