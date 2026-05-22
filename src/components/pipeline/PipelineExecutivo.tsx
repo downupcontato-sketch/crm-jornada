@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import { AlertTriangle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn, getGrupoLabel } from '@/lib/utils'
 import { calcularSLAFase, FASE_LABELS } from '@/lib/pipeline'
+import { FASE_SLUG } from '@/lib/pipelineRoutes'
 import { CardFaseExecutivo } from './CardFaseExecutivo'
-import { DrillDownPanel } from './DrillDownPanel'
-import { DrawerLead } from './DrawerLead'
-import type { Contact, ContactGrupo, FasePipeline } from '@/types/database'
+import type { ContactGrupo, FasePipeline } from '@/types/database'
 
 const FASES_ATIVAS: FasePipeline[] = ['CONTATO_INICIAL', 'QUALIFICACAO', 'AULAS', 'POS_AULA']
 const GRUPOS: ContactGrupo[] = ['rise', 'flow', 'vox', 'ek', 'zion_geral']
@@ -16,10 +16,9 @@ const GRUPOS: ContactGrupo[] = ['rise', 'flow', 'vox', 'ek', 'zion_geral']
 export function PipelineExecutivo() {
   const { profile, canSeeAllContacts } = useAuth()
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const [grupoFiltro, setGrupoFiltro] = useState<ContactGrupo | 'todos'>('todos')
   const [mostrarInativos, setMostrarInativos] = useState(false)
-  const [drillFase, setDrillFase] = useState<FasePipeline | null>(null)
-  const [drawerContact, setDrawerContact] = useState<Contact | null>(null)
 
   const { data: contacts = [], isLoading, error } = useQuery({
     queryKey: ['pipeline-exec', grupoFiltro, mostrarInativos],
@@ -47,25 +46,16 @@ export function PipelineExecutivo() {
     staleTime: 5 * 60 * 1000,
   })
 
-  function handleUpdated(id: string, upd: Partial<Contact>) {
-    qc.setQueryData(['pipeline-exec', grupoFiltro, mostrarInativos], (old: Contact[] | undefined) =>
-      old?.map(c => c.id === id ? { ...c, ...upd } : c) ?? []
-    )
-    if (drawerContact?.id === id) setDrawerContact(c => c ? { ...c, ...upd } : c)
-  }
-
   const porFase = FASES_ATIVAS.reduce((acc, f) => {
     acc[f] = contacts.filter(c => c.fase_pipeline === f)
     return acc
   }, {} as Record<FasePipeline, Contact[]>)
 
   // KPIs globais
-  const totalAtivos  = contacts.length
-  const totalUrgentes = contacts.filter(c => calcularSLAFase(c) === 'over').length
-  const totalAtencao  = contacts.filter(c => calcularSLAFase(c) === 'warn').length
+  const totalAtivos     = contacts.length
+  const totalUrgentes   = contacts.filter(c => calcularSLAFase(c) === 'over').length
+  const totalAtencao    = contacts.filter(c => calcularSLAFase(c) === 'warn').length
   const batismoAgendado = contacts.filter(c => c.subetapa_batismo === 'BATISMO_AGENDADO').length
-
-  const drillContacts = drillFase ? (porFase[drillFase] ?? []) : []
 
   return (
     <div>
@@ -130,32 +120,13 @@ export function PipelineExecutivo() {
               key={f}
               fase={f}
               contacts={porFase[f] ?? []}
-              active={drillFase === f}
-              onClick={() => setDrillFase(drillFase === f ? null : f)}
+              active={false}
+              onClick={() => navigate(`/pipeline/${FASE_SLUG[f]}`)}
             />
           ))}
         </div>
       )}
 
-      {/* DrillDown */}
-      {drillFase && (
-        <DrillDownPanel
-          fase={drillFase}
-          contacts={drillContacts}
-          onClose={() => setDrillFase(null)}
-          onCard={c => { setDrawerContact(c); setDrillFase(null) }}
-          volMap={volMap}
-        />
-      )}
-
-      {/* DrawerLead */}
-      {drawerContact && (
-        <DrawerLead
-          contact={drawerContact}
-          onClose={() => setDrawerContact(null)}
-          onUpdated={upd => handleUpdated(drawerContact.id, upd)}
-        />
-      )}
     </div>
   )
 }

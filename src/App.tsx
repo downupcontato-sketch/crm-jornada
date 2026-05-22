@@ -42,6 +42,8 @@ export default function App() {
             <Route path="/cadastro" element={<ProtectedRoute><Cadastro /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['admin','lider']}><Dashboard /></ProtectedRoute>} />
             <Route path="/pipeline" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador','linha_de_frente']}><Pipeline /></ProtectedRoute>} />
+            <Route path="/pipeline/:etapa" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador','linha_de_frente']}><Pipeline /></ProtectedRoute>} />
+            <Route path="/pipeline/:etapa/lead/:id" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador','linha_de_frente']}><Pipeline /></ProtectedRoute>} />
             <Route path="/meus-contatos" element={<ProtectedRoute allowedRoles={['voluntario']}><MeusContatos /></ProtectedRoute>} />
             <Route path="/contato/:id" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador','voluntario','linha_de_frente']}><ContatoDetail /></ProtectedRoute>} />
             <Route path="/equipe" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador']}><Equipe /></ProtectedRoute>} />

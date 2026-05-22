@@ -30,11 +30,11 @@ const TIPO_HIST: Record<string, { label: string; cor: string }> = {
   EDICAO:          { label: 'Edição',         cor: 'text-muted-foreground' },
 }
 
-function Spinner() {
+export function Spinner() {
   return <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
 }
 
-function ContatoInicialSection({
+export function ContatoInicialSection({
   contact, waSent, advancing, onWa, onRespondeu, onNaoRespondeuAvancar, onArquivar,
 }: {
   contact: Contact
@@ -195,7 +195,7 @@ function ContatoInicialSection({
   )
 }
 
-function QualificacaoSection({
+export function QualificacaoSection({
   contact, advancing, onAvancar, onEnviarConvite, onNaoQualificada, onInscricaoConfirmada,
 }: {
   contact: Contact
