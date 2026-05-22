@@ -320,6 +320,75 @@ function QualificacaoSection({
   )
 }
 
+const FASES_PIPELINE = [
+  { key: 'CONTATO_INICIAL', label: 'Contato' },
+  { key: 'QUALIFICACAO',    label: 'Qualificação' },
+  { key: 'AULAS',           label: 'Aulas' },
+  { key: 'POS_AULA',        label: 'Pós-Aula' },
+] as const
+
+const FASE_ORDER = ['CONTATO_INICIAL','QUALIFICACAO','AULAS','POS_AULA','BATIZADO'] as const
+
+function PhaseStepper({ contact }: { contact: Contact }) {
+  const currentIdx = FASE_ORDER.indexOf(contact.fase_pipeline as typeof FASE_ORDER[number])
+  return (
+    <div className="flex items-center gap-0 px-5 pt-4 pb-1">
+      {FASES_PIPELINE.map((f, i) => {
+        const fIdx = FASE_ORDER.indexOf(f.key)
+        const done    = currentIdx > fIdx
+        const current = currentIdx === fIdx
+        return (
+          <div key={f.key} className="flex items-center flex-1 min-w-0">
+            <div className="flex flex-col items-center gap-1 flex-1 min-w-0">
+              <div className={cn(
+                'w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 text-[9px] font-bold transition-all',
+                done    ? 'bg-menta-light text-petroleo' :
+                current ? 'bg-menta-light/20 border-2 border-menta-light text-menta-light' :
+                          'bg-muted/30 border border-border text-muted-foreground/40',
+              )}>
+                {done ? '✓' : i + 1}
+              </div>
+              <span className={cn(
+                'text-[9px] leading-tight text-center truncate w-full px-0.5',
+                done    ? 'text-muted-foreground' :
+                current ? 'text-menta-light font-semibold' :
+                          'text-muted-foreground/40',
+              )}>
+                {f.label}
+              </span>
+            </div>
+            {i < FASES_PIPELINE.length - 1 && (
+              <div className={cn('h-px flex-1 mx-1 mb-4', done ? 'bg-menta-light/40' : 'bg-border')} />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function CurrentStepCard({ contact }: { contact: Contact }) {
+  const subetapaAtual = contact.subetapa_qualificacao ?? contact.subetapa_contato ?? contact.subetapa_encaminhamento ?? contact.subetapa_batismo
+  const subAtualLabel = subetapaAtual ? (SUBETAPA_LABELS[subetapaAtual] ?? subetapaAtual) : FASE_LABELS[contact.fase_pipeline]
+  const proxLabel = proximaSubetapaLabel(contact)
+
+  const isFinal = ['BATIZADO','PERDIDO','REENCAMINHADO'].includes(contact.fase_pipeline)
+  if (isFinal) return null
+
+  return (
+    <div className="mx-5 mt-3 rounded-xl border border-border bg-muted/20 divide-y divide-border">
+      <div className="flex items-center justify-between px-3 py-2">
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Etapa atual</span>
+        <span className="text-xs font-semibold text-menta-light">{subAtualLabel}</span>
+      </div>
+      <div className="flex items-center justify-between px-3 py-2">
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Próximo passo</span>
+        <span className="text-xs text-offwhite/70">{proxLabel}</span>
+      </div>
+    </div>
+  )
+}
+
 export function DrawerLead({ contact: initial, onClose, onUpdated }: Props) {
   const { profile } = useAuth()
   const qc = useQueryClient()
@@ -525,6 +594,10 @@ export function DrawerLead({ contact: initial, onClose, onUpdated }: Props) {
 
         <div className="flex-1 overflow-y-auto">
 
+          {/* Phase stepper + current step card */}
+          <PhaseStepper contact={contact} />
+          <CurrentStepCard contact={contact} />
+
           {/* CONTATO_INICIAL — conditional question flow */}
           {contact.fase_pipeline === 'CONTATO_INICIAL' && (
             <ContatoInicialSection
@@ -603,29 +676,36 @@ export function DrawerLead({ contact: initial, onClose, onUpdated }: Props) {
             </div>
           )}
 
-          {/* Trilha de progresso */}
+          {/* Trilha de progresso — apenas etapas próximas */}
           <div className="px-5 pt-4">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Progresso</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Progresso</p>
             <div className="space-y-1">
-              {progresso.map((no, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <div className={cn('w-4 h-4 rounded-full flex-shrink-0 border-2 flex items-center justify-center', {
-                    done:    'bg-menta-light border-menta-light',
-                    current: 'bg-transparent border-menta-light',
-                    pending: 'bg-transparent border-border',
-                  }[no.status])}>
-                    {no.status === 'done' && <div className="w-1.5 h-1.5 bg-petroleo rounded-full" />}
-                    {no.status === 'current' && <div className="w-1.5 h-1.5 bg-menta-light rounded-full animate-pulse" />}
+              {progresso
+                .filter((_, i, arr) => {
+                  const currentIdx = arr.findIndex(n => n.status === 'current')
+                  if (currentIdx !== -1) return i >= currentIdx - 1 && i <= currentIdx + 2
+                  const lastDone = arr.reduce((acc, n, j) => n.status === 'done' ? j : acc, -1)
+                  return i >= lastDone - 1
+                })
+                .map((no, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className={cn('w-4 h-4 rounded-full flex-shrink-0 border-2 flex items-center justify-center', {
+                      done:    'bg-menta-light border-menta-light',
+                      current: 'bg-transparent border-menta-light',
+                      pending: 'bg-transparent border-border',
+                    }[no.status])}>
+                      {no.status === 'done' && <div className="w-1.5 h-1.5 bg-petroleo rounded-full" />}
+                      {no.status === 'current' && <div className="w-1.5 h-1.5 bg-menta-light rounded-full animate-pulse" />}
+                    </div>
+                    <span className={cn('text-xs', {
+                      done:    'text-muted-foreground line-through',
+                      current: 'text-offwhite font-medium',
+                      pending: 'text-muted-foreground/50',
+                    }[no.status])}>
+                      {no.label}
+                    </span>
                   </div>
-                  <span className={cn('text-xs', {
-                    done:    'text-muted-foreground line-through',
-                    current: 'text-offwhite font-medium',
-                    pending: 'text-muted-foreground/50',
-                  }[no.status])}>
-                    {no.label}
-                  </span>
-                </div>
-              ))}
+                ))}
             </div>
           </div>
 

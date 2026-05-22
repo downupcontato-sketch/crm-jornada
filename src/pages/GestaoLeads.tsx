@@ -187,7 +187,7 @@ export default function GestaoLeads() {
         .from('profiles')
         .select('id, nome, grupo, max_contatos_ativos')
         .eq('nivel', 'voluntario')
-        .eq('status', 'ativo')
+        .eq('ativo', true)
         .order('nome')
       if (!data) return []
       // Buscar contagem de contatos ativos por voluntário
