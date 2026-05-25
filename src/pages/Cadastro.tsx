@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { CheckCircle, UserPlus } from 'lucide-react'
@@ -9,13 +9,12 @@ import { verificarDuplicata, distribuirLead, mesclarLeads, type ResultadoDedup }
 import { ModalDuplicata } from '@/components/contacts/ModalDuplicata'
 import { toast } from 'sonner'
 import { DEFAULT_CHURCH_ID } from '@/lib/constants/church'
+import { PhoneInputInternacional, validatePhone } from '@/components/ui/PhoneInputInternacional'
 import type { ContactTipo, ContactGrupo } from '@/types/database'
 
 const schema = z.object({
   nome: z.string().min(2, 'Nome é obrigatório'),
-  telefone: z.string()
-    .min(10, 'Telefone inválido')
-    .regex(/^[\d\s\(\)\-\+]+$/, 'Somente números'),
+  telefone: z.string().min(1, 'WhatsApp é obrigatório'),
   email: z.string().email('Email inválido').optional().or(z.literal('')),
   tipo: z.enum(['novo_nascimento', 'reconciliacao', 'visitante'] as const),
   grupo: z.enum(['rise', 'flow', 'vox', 'ek', 'zion_geral'] as const),
@@ -34,7 +33,9 @@ export default function Cadastro() {
   const [duplicata, setDuplicata] = useState<ResultadoDedup | null>(null)
   const [pendingFormData, setPendingFormData] = useState<FormData | null>(null)
 
-  const { register, handleSubmit, reset, formState: { errors }, watch } = useForm<FormData>({
+  const [phoneCountry, setPhoneCountry] = useState('BR')
+
+  const { register, handleSubmit, reset, control, formState: { errors }, watch, setError, clearErrors } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       tipo: 'novo_nascimento',
@@ -51,7 +52,7 @@ export default function Cadastro() {
     try {
       const { data: contact, error } = await supabase.from('contacts').insert({
         nome: data.nome,
-        telefone: data.telefone.replace(/\D/g, ''),
+        telefone: data.telefone,
         email: data.email || null,
         whatsapp_valido: true,
         tipo: data.tipo as ContactTipo,
@@ -136,7 +137,7 @@ export default function Cadastro() {
       // Cria o novo contato primeiro
       const { data: novoContact, error } = await supabase.from('contacts').insert({
         nome: pendingFormData.nome,
-        telefone: pendingFormData.telefone.replace(/\D/g, ''),
+        telefone: pendingFormData.telefone,
         email: pendingFormData.email || null,
         whatsapp_valido: true,
         tipo: pendingFormData.tipo as ContactTipo,
@@ -241,8 +242,27 @@ export default function Cadastro() {
             <label className="block text-sm font-medium text-foreground mb-1.5">
               WhatsApp <span className="text-red-400">*</span>
             </label>
-            <input type="tel" placeholder="(11) 99999-9999" autoComplete="tel" inputMode="tel" className="zion-input" {...register('telefone')} />
-            {errors.telefone && <p className="text-red-400 text-xs mt-1">{errors.telefone.message}</p>}
+            <Controller
+              name="telefone"
+              control={control}
+              render={({ field }) => (
+                <PhoneInputInternacional
+                  value={field.value ?? ''}
+                  onChange={(e164) => {
+                    field.onChange(e164)
+                    if (e164 && !validatePhone(e164, phoneCountry)) {
+                      const country = phoneCountry
+                      setError('telefone', { message: `Número de WhatsApp inválido para ${country}` })
+                    } else {
+                      clearErrors('telefone')
+                    }
+                  }}
+                  onCountryChange={(code) => setPhoneCountry(code)}
+                  defaultCountry="BR"
+                  error={errors.telefone?.message}
+                />
+              )}
+            />
           </div>
 
           {/* Email (opcional, melhora deduplicação) */}

@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { calcularGrupo } from '@/lib/calcularGrupo'
 import { LOCAL_OPTIONS } from '@/lib/locaisCulto'
 import { DEFAULT_CHURCH_ID } from '@/lib/constants/church'
+import { PhoneInputInternacional, validatePhone } from '@/components/ui/PhoneInputInternacional'
 import type { ContactTipo, SubtipoVisitante } from '@/types/database'
 
 // ─── Tipos internos ─────────────────────────────────────────────────────────
@@ -21,15 +22,6 @@ const STEP_SUBTITLE: Record<StepContent, string> = {
   momento: 'Seu momento com Deus',
   perfil:  'Nos conte um pouco mais',
   local:   'Onde você estava?',
-}
-
-// ─── Máscara de telefone ────────────────────────────────────────────────────
-
-function maskTel(v: string): string {
-  const d = v.replace(/\D/g, '').slice(0, 11)
-  if (d.length <= 2)  return `(${d}`
-  if (d.length <= 7)  return `(${d.slice(0,2)}) ${d.slice(2)}`
-  return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`
 }
 
 // ─── Estado inicial ─────────────────────────────────────────────────────────
@@ -68,6 +60,7 @@ export default function FormularioPublico() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [phoneCountry, setPhoneCountry] = useState('BR')
 
   const isVisitante = form.tipo === 'visitante'
   const totalSteps  = isVisitante ? 4 : 3
@@ -102,7 +95,8 @@ export default function FormularioPublico() {
 
     if (c === 'voce') {
       if (!form.nome.trim()) errs.nome = 'Informe seu nome'
-      if (form.telefone.replace(/\D/g, '').length < 10) errs.telefone = 'Telefone inválido'
+      if (!form.telefone || !validatePhone(form.telefone, phoneCountry))
+        errs.telefone = `Número de WhatsApp inválido para ${phoneCountry}`
       if (!form.idade || isNaN(Number(form.idade)) || Number(form.idade) < 0) errs.idade = 'Informe sua idade'
     }
 
@@ -145,7 +139,7 @@ export default function FormularioPublico() {
 
       const { error } = await supabase.from('contacts').insert({
         nome:               form.nome.trim(),
-        telefone:           form.telefone.replace(/\D/g, ''),
+        telefone:           form.telefone,
         email:              null,
         whatsapp_valido:    true,
         tipo:               form.tipo as ContactTipo,
@@ -262,11 +256,12 @@ export default function FormularioPublico() {
               </Field>
 
               <Field label="WhatsApp" error={errors.telefone}>
-                <input
-                  type="tel" placeholder="(11) 99999-9999" inputMode="tel"
+                <PhoneInputInternacional
                   value={form.telefone}
-                  onChange={e => set('telefone', maskTel(e.target.value))}
-                  style={inputStyle(!!errors.telefone)}
+                  onChange={e164 => set('telefone', e164)}
+                  onCountryChange={(code) => setPhoneCountry(code)}
+                  defaultCountry="BR"
+                  inputStyle={inputStyle(!!errors.telefone)}
                 />
               </Field>
 
