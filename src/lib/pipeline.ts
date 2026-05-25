@@ -301,6 +301,24 @@ export async function ativarTrilhaBatismo(c: Contact, userId: string): Promise<v
   })
 }
 
+// ─── Redirecionar para Batismo (sem contabilizar como perda) ─────────────────
+
+export async function redirecionarParaBatismo(c: Contact, userId: string): Promise<void> {
+  const upd: Partial<Contact> = {
+    fase_pipeline: 'POS_AULA',
+    subetapa_batismo: 'DECIDIU_BATIZAR',
+    motivo_perda: 'INDICADO_BATISMO',
+    perda_definitiva: false,
+    status: 'ativo',
+  }
+  const { error } = await supabase.from('contacts').update(upd).eq('id', c.id)
+  if (error) throw error
+  await supabase.from('lead_historico').insert({
+    contact_id: c.id, user_id: userId, tipo: 'REENCAMINHAMENTO',
+    descricao: 'Redirecionado para trilha de batismo — perfil identificado na qualificação',
+  })
+}
+
 // ─── Registrar perda ─────────────────────────────────────────────────────────
 
 const REENCAMINHAM: MotivoPerdaLead[] = [
