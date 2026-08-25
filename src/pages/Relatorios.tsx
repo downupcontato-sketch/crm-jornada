@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { calcularSLAFase, FASE_LABELS } from '@/lib/pipeline'
@@ -6,7 +7,7 @@ import { LOCAL_OPTIONS } from '@/lib/locaisCulto'
 import { GRUPO_LABEL, TIPO_LABEL, FASES_ATIVAS, RelatorioPDF, type DadosRelatorio } from '@/lib/relatorio-pdf'
 import { pdf } from '@react-pdf/renderer'
 import * as XLSX from 'xlsx'
-import { BarChart2, FileText, Table2, Loader2 } from 'lucide-react'
+import { BarChart2, FileText, Table2, Loader2, Search, Users, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
 import type { FasePipeline, ContactGrupo, ContactTipo } from '@/types/database'
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
@@ -20,7 +21,37 @@ const FASES_FILTRO: FasePipeline[] = ['CONTATO_INICIAL', 'QUALIFICACAO', 'AULAS'
 
 const LOCAIS_FLAT = LOCAL_OPTIONS.flatMap(g => g.items as unknown as string[])
 
+const POR_PAGINA = 25
+
+const SEXO_LABEL: Record<string, string> = { MASCULINO: 'Masculino', FEMININO: 'Feminino' }
+
+const SUBTIPO_LABEL: Record<string, string> = {
+  CONHECENDO: 'Estou conhecendo',
+  SEM_IGREJA: 'Não tem igreja local',
+  COM_IGREJA: 'Tem igreja local',
+}
+
 // ─── Tipos de filtro ──────────────────────────────────────────────────────────
+
+/** Registro individual exibido na lista nominal de cadastros do período. */
+interface ContatoLista {
+  id: string
+  nome: string
+  telefone: string | null
+  email: string | null
+  idade: number | null
+  sexo: string | null
+  tipo: ContactTipo
+  grupo: ContactGrupo
+  fase_pipeline: FasePipeline
+  local_culto: string | null
+  culto_captacao: string | null
+  status: string
+  subtipo_visitante: string | null
+  igreja_local_nome: string | null
+  created_at: string
+  voluntario: string
+}
 
 interface Filtros {
   dataInicio: string
@@ -45,6 +76,9 @@ export default function Relatorios() {
     tipo: '',
   })
   const [dados, setDados] = useState<DadosRelatorio | null>(null)
+  const [lista, setLista] = useState<ContatoLista[]>([])
+  const [busca, setBusca] = useState('')
+  const [pagina, setPagina] = useState(1)
   const [loading, setLoading] = useState(false)
   const [exportando, setExportando] = useState<'pdf' | 'csv' | null>(null)
   const [erro, setErro] = useState('')
@@ -63,7 +97,7 @@ export default function Relatorios() {
       let q = supabase
         .from('contacts')
         .select(`
-          id, nome, telefone, idade, tipo, grupo, fase_pipeline,
+          id, nome, telefone, email, idade, tipo, grupo, fase_pipeline,
           local_culto, culto_captacao, status, updated_at, created_at,
           voluntario_atribuido_id, subtipo_visitante, igreja_local_nome, sexo,
           profiles!contacts_voluntario_atribuido_id_fkey(nome)
@@ -178,6 +212,32 @@ export default function Relatorios() {
         totalContatos: cs.filter(c => c.voluntario_atribuido_id === v.id).length,
       }))
 
+      // — Lista nominal (todos os cadastrados do período, mais recentes primeiro)
+      const listaNominal: ContatoLista[] = cs
+        .map((c: any) => ({
+          id: c.id,
+          nome: c.nome,
+          telefone: c.telefone ?? null,
+          email: c.email ?? null,
+          idade: c.idade ?? null,
+          sexo: c.sexo ?? null,
+          tipo: c.tipo,
+          grupo: c.grupo,
+          fase_pipeline: c.fase_pipeline,
+          local_culto: c.local_culto ?? null,
+          culto_captacao: c.culto_captacao ?? null,
+          status: c.status,
+          subtipo_visitante: c.subtipo_visitante ?? null,
+          igreja_local_nome: c.igreja_local_nome ?? null,
+          created_at: c.created_at,
+          voluntario: c.profiles?.nome ?? '',
+        }))
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
+
+      setLista(listaNominal)
+      setBusca('')
+      setPagina(1)
+
       setDados({
         meta: {
           totalContatos: cs.length,
@@ -226,48 +286,23 @@ export default function Relatorios() {
   // ─── Export CSV ───────────────────────────────────────────────────────────
 
   async function exportarCSV() {
-    if (!dados) return
+    if (!lista.length) return
     setExportando('csv')
-
-    // Rebusca contatos brutos para o CSV (com campos completos)
     try {
-      let q = supabase
-        .from('contacts')
-        .select(`
-          nome, telefone, idade, tipo, grupo, fase_pipeline,
-          local_culto, culto_captacao, status, created_at,
-          subtipo_visitante, igreja_local_nome, sexo,
-          profiles!contacts_voluntario_atribuido_id_fkey(nome)
-        `)
-        .in('status', ['ativo', 'sem_resposta', 'encaminhado', 'batizado'])
-        .gte('created_at', filtros.dataInicio)
-        .lte('created_at', filtros.dataFim + 'T23:59:59')
-        .order('created_at', { ascending: false })
-
-      if (isLider && !isAdmin) q = q.eq('grupo', profile?.grupo ?? '')
-      else if (filtros.grupo && isAdmin) q = q.eq('grupo', filtros.grupo)
-      if (filtros.fase)       q = q.eq('fase_pipeline', filtros.fase)
-      if (filtros.localCulto) q = q.eq('local_culto', filtros.localCulto)
-      if (filtros.tipo)       q = q.eq('tipo', filtros.tipo)
-
-      const { data: contatos } = await q
-
-      const rows = (contatos ?? []).map((c: any) => ({
+      const rows = lista.map(c => ({
         'Nome':               c.nome,
         'Telefone':           c.telefone ?? '',
+        'E-mail':             c.email ?? '',
         'Idade':              c.idade ?? '',
-        'Tipo':               TIPO_LABEL[c.tipo as ContactTipo] ?? c.tipo,
-        'Grupo':              GRUPO_LABEL[c.grupo as ContactGrupo] ?? c.grupo,
-        'Etapa':              FASE_LABELS[c.fase_pipeline as FasePipeline] ?? c.fase_pipeline,
+        'Sexo':               c.sexo ? SEXO_LABEL[c.sexo] ?? c.sexo : '',
+        'Tipo':               TIPO_LABEL[c.tipo] ?? c.tipo,
+        'Grupo':              GRUPO_LABEL[c.grupo] ?? c.grupo,
+        'Etapa':              FASE_LABELS[c.fase_pipeline] ?? c.fase_pipeline,
         'Local do culto':     c.local_culto ?? '',
         'Data entrada':       c.culto_captacao ? new Date(c.culto_captacao).toLocaleDateString('pt-BR') : '',
-        'Voluntário':         (c.profiles as any)?.nome ?? '',
+        'Voluntário':         c.voluntario,
         'Status':             c.status,
-        'Sexo':               c.sexo === 'MASCULINO' ? 'Masculino' : c.sexo === 'FEMININO' ? 'Feminino' : '',
-        'Perfil visitante':   c.subtipo_visitante === 'CONHECENDO' ? 'Estou conhecendo'
-                              : c.subtipo_visitante === 'SEM_IGREJA' ? 'Não tem igreja local'
-                              : c.subtipo_visitante === 'COM_IGREJA'  ? 'Tem igreja local'
-                              : '',
+        'Perfil visitante':   c.subtipo_visitante ? SUBTIPO_LABEL[c.subtipo_visitante] ?? '' : '',
         'Igreja de origem':   c.igreja_local_nome ?? '',
         'Cadastrado em':      new Date(c.created_at).toLocaleDateString('pt-BR'),
       }))
@@ -275,11 +310,28 @@ export default function Relatorios() {
       const ws = XLSX.utils.json_to_sheet(rows)
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Relatório')
-      XLSX.writeFile(wb, `jornada-relatorio-${hoje}.csv`, { bookType: 'csv' })
+      XLSX.writeFile(wb, `jornada-cadastros-${hoje}.csv`, { bookType: 'csv' })
     } finally {
       setExportando(null)
     }
   }
+
+  // ─── Lista nominal: busca + paginação ─────────────────────────────────────
+
+  const listaFiltrada = useMemo(() => {
+    const termo = busca.trim().toLowerCase()
+    if (!termo) return lista
+    const digitos = termo.replace(/\D/g, '')
+    return lista.filter(c =>
+      c.nome.toLowerCase().includes(termo) ||
+      (c.email ?? '').toLowerCase().includes(termo) ||
+      (digitos.length >= 3 && (c.telefone ?? '').replace(/\D/g, '').includes(digitos))
+    )
+  }, [lista, busca])
+
+  const totalPaginas = Math.max(1, Math.ceil(listaFiltrada.length / POR_PAGINA))
+  const paginaAtual = Math.min(pagina, totalPaginas)
+  const listaPagina = listaFiltrada.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA)
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -397,6 +449,107 @@ export default function Relatorios() {
                 <p className={`text-3xl font-semibold ${m.color}`}>{m.value}</p>
               </div>
             ))}
+          </div>
+
+          {/* Lista nominal de cadastros do período */}
+          <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Users size={16} className="text-menta-light" />
+                <h3 className="text-sm font-medium text-offwhite">Cadastros do período</h3>
+                <span className="text-xs text-muted-foreground">
+                  {listaFiltrada.length} {listaFiltrada.length === 1 ? 'pessoa' : 'pessoas'}
+                  {busca.trim() && ` de ${lista.length}`}
+                </span>
+              </div>
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={busca}
+                  onChange={e => { setBusca(e.target.value); setPagina(1) }}
+                  placeholder="Buscar por nome, telefone ou e-mail"
+                  className="text-sm bg-input border border-border rounded-xl pl-9 pr-3 py-2 text-offwhite w-72 max-w-full focus:outline-none focus:ring-1 focus:ring-menta-light"
+                />
+              </div>
+            </div>
+
+            {listaFiltrada.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-4 text-center">
+                {lista.length === 0 ? 'Nenhum cadastro no período selecionado' : 'Nenhum resultado para a busca'}
+              </p>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm min-w-[900px]">
+                    <thead>
+                      <tr className="border-b border-border">
+                        {['Nome', 'Contato', 'Perfil', 'Grupo', 'Etapa', 'Local do culto', 'Voluntário', 'Cadastro', ''].map((h, i) => (
+                          <th key={i} className="text-left text-xs text-muted-foreground font-medium pb-2 pr-3 whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {listaPagina.map(c => (
+                        <tr key={c.id} className="border-b border-border/50 last:border-0 hover:bg-muted/10">
+                          <td className="py-2.5 pr-3 text-offwhite">
+                            {c.nome}
+                            {c.igreja_local_nome && (
+                              <span className="block text-[11px] text-muted-foreground truncate max-w-[200px]">{c.igreja_local_nome}</span>
+                            )}
+                          </td>
+                          <td className="py-2.5 pr-3 text-muted-foreground text-xs whitespace-nowrap">
+                            {c.telefone ?? '—'}
+                            {c.email && <span className="block truncate max-w-[180px]">{c.email}</span>}
+                          </td>
+                          <td className="py-2.5 pr-3 text-muted-foreground text-xs whitespace-nowrap">
+                            {TIPO_LABEL[c.tipo] ?? c.tipo}
+                            <span className="block">
+                              {[c.sexo ? SEXO_LABEL[c.sexo] ?? c.sexo : null, c.idade ? `${c.idade} anos` : null]
+                                .filter(Boolean).join(' · ') || (c.subtipo_visitante ? SUBTIPO_LABEL[c.subtipo_visitante] : '')}
+                            </span>
+                          </td>
+                          <td className="py-2.5 pr-3 text-muted-foreground text-xs">{GRUPO_LABEL[c.grupo] ?? c.grupo}</td>
+                          <td className="py-2.5 pr-3 text-xs whitespace-nowrap">
+                            <span className="inline-block px-2 py-0.5 rounded-full bg-muted/30 text-offwhite">
+                              {FASE_LABELS[c.fase_pipeline] ?? c.fase_pipeline}
+                            </span>
+                          </td>
+                          <td className="py-2.5 pr-3 text-muted-foreground text-xs truncate max-w-[160px]">{c.local_culto ?? '—'}</td>
+                          <td className="py-2.5 pr-3 text-muted-foreground text-xs truncate max-w-[140px]">{c.voluntario || '—'}</td>
+                          <td className="py-2.5 pr-3 text-muted-foreground text-xs whitespace-nowrap">
+                            {new Date(c.created_at).toLocaleDateString('pt-BR')}
+                          </td>
+                          <td className="py-2.5">
+                            <Link to={`/contato/${c.id}`} title="Abrir contato"
+                              className="text-muted-foreground hover:text-menta-light transition-colors inline-flex">
+                              <ExternalLink size={14} />
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {totalPaginas > 1 && (
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-xs text-muted-foreground">
+                      Página {paginaAtual} de {totalPaginas}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setPagina(p => Math.max(1, p - 1))} disabled={paginaAtual === 1}
+                        className="p-2 rounded-lg border border-border text-muted-foreground hover:text-menta-light hover:border-menta-light transition-colors disabled:opacity-40 disabled:hover:text-muted-foreground disabled:hover:border-border">
+                        <ChevronLeft size={14} />
+                      </button>
+                      <button onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))} disabled={paginaAtual === totalPaginas}
+                        className="p-2 rounded-lg border border-border text-muted-foreground hover:text-menta-light hover:border-menta-light transition-colors disabled:opacity-40 disabled:hover:text-muted-foreground disabled:hover:border-border">
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           {/* Por fase + taxa de conversão */}
