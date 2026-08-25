@@ -28,6 +28,34 @@ export const FASES_ATIVAS: FasePipeline[] = [
 
 // ─── Tipos de dados do relatório ─────────────────────────────────────────────
 
+/** Registro individual de pessoa cadastrada no período. */
+export interface ContatoRelatorio {
+  id: string
+  nome: string
+  telefone: string | null
+  email: string | null
+  idade: number | null
+  sexo: string | null
+  tipo: ContactTipo
+  grupo: ContactGrupo
+  fase_pipeline: FasePipeline
+  local_culto: string | null
+  culto_captacao: string | null
+  status: string
+  subtipo_visitante: string | null
+  igreja_local_nome: string | null
+  created_at: string
+  voluntario: string
+}
+
+export const SEXO_LABEL: Record<string, string> = { MASCULINO: 'Masculino', FEMININO: 'Feminino' }
+
+export const SUBTIPO_LABEL: Record<string, string> = {
+  CONHECENDO: 'Estou conhecendo',
+  SEM_IGREJA: 'Não tem igreja local',
+  COM_IGREJA: 'Tem igreja local',
+}
+
 export interface DadosRelatorio {
   meta: {
     totalContatos: number
@@ -47,6 +75,8 @@ export interface DadosRelatorio {
   porIgrejaOrigem: { nome: string; count: number }[]
   porSexo?: { sexo: string; count: number }[]
   matrizTipoLocal?: { local: string; novo_nascimento: number; reconciliacao: number; visitante: number; total: number }[]
+  /** Lista nominal de todas as pessoas cadastradas no período. */
+  listaContatos?: ContatoRelatorio[]
 }
 
 // ─── Estilos ─────────────────────────────────────────────────────────────────
@@ -132,7 +162,7 @@ function MatrizPDF({ titulo, rows }: { titulo: string; rows: MatrizRow[] }) {
 // ─── Componente PDF ───────────────────────────────────────────────────────────
 
 export function RelatorioPDF({ dados }: { dados: DadosRelatorio }) {
-  const { meta, porFase, porGrupo, porLocal, porTipo, taxaConversao, sla, batizados, porVoluntario, porIgrejaOrigem, porSexo, matrizTipoLocal } = dados
+  const { meta, porFase, porGrupo, porLocal, porTipo, taxaConversao, sla, batizados, porVoluntario, porIgrejaOrigem, porSexo, matrizTipoLocal, listaContatos } = dados
   const matrizCampus      = (matrizTipoLocal ?? []).filter(r => LOCAIS_CAMPUS.has(r.local as any))
   const matrizGeracionais = (matrizTipoLocal ?? []).filter(r => LOCAIS_GERACIONAIS.has(r.local as any))
   const dataInicio = new Date(meta.dataInicio).toLocaleDateString('pt-BR')
@@ -305,6 +335,52 @@ export function RelatorioPDF({ dados }: { dados: DadosRelatorio }) {
           <Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
         </View>
       </Page>
+      {/* Página 3+ — Lista nominal de cadastros */}
+      {listaContatos && listaContatos.length > 0 && (
+        <Page size="A4" orientation="landscape" style={s.page}>
+          <View style={s.header}>
+            <Text style={s.logo}>Cadastros do período</Text>
+            <Text style={s.subtitle}>
+              {listaContatos.length} {listaContatos.length === 1 ? 'pessoa cadastrada' : 'pessoas cadastradas'} entre {dataInicio} e {dataFim}
+            </Text>
+          </View>
+
+          <View style={s.tableHeader} fixed>
+            <Text style={[s.th, { width: 118 }]}>Nome</Text>
+            <Text style={[s.th, { width: 78 }]}>Telefone</Text>
+            <Text style={[s.th, { width: 24, textAlign: 'center' }]}>Id.</Text>
+            <Text style={[s.th, { width: 48 }]}>Sexo</Text>
+            <Text style={[s.th, { width: 76 }]}>Tipo</Text>
+            <Text style={[s.th, { width: 52 }]}>Grupo</Text>
+            <Text style={[s.th, { width: 74 }]}>Etapa</Text>
+            <Text style={[s.th, { width: 108 }]}>Local do culto</Text>
+            <Text style={[s.th, { width: 88 }]}>Voluntário</Text>
+            <Text style={[s.th, { width: 52, textAlign: 'right' }]}>Cadastro</Text>
+          </View>
+
+          {listaContatos.map((c, i) => (
+            <View key={c.id} style={i % 2 === 0 ? s.tableRow : s.tableRowAlt} wrap={false}>
+              <Text style={[s.td, { width: 118 }]}>{c.nome}</Text>
+              <Text style={[s.td, { width: 78 }]}>{c.telefone ?? '—'}</Text>
+              <Text style={[s.td, { width: 24, textAlign: 'center' }]}>{c.idade ?? '—'}</Text>
+              <Text style={[s.td, { width: 48 }]}>{c.sexo ? SEXO_LABEL[c.sexo] ?? c.sexo : '—'}</Text>
+              <Text style={[s.td, { width: 76 }]}>{TIPO_LABEL[c.tipo] ?? c.tipo}</Text>
+              <Text style={[s.td, { width: 52 }]}>{GRUPO_LABEL[c.grupo] ?? c.grupo}</Text>
+              <Text style={[s.td, { width: 74 }]}>{FASE_LABELS[c.fase_pipeline] ?? c.fase_pipeline}</Text>
+              <Text style={[s.td, { width: 108 }]}>{c.local_culto ?? '—'}</Text>
+              <Text style={[s.td, { width: 88 }]}>{c.voluntario || '—'}</Text>
+              <Text style={[s.td, { width: 52, textAlign: 'right' }]}>
+                {new Date(c.created_at).toLocaleDateString('pt-BR')}
+              </Text>
+            </View>
+          ))}
+
+          <View style={s.footer} fixed>
+            <Text>Jornada CRM · Zion Church</Text>
+            <Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
+          </View>
+        </Page>
+      )}
     </Document>
   )
 }

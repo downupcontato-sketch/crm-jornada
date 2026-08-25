@@ -4,10 +4,10 @@ import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { calcularSLAFase, FASE_LABELS } from '@/lib/pipeline'
 import { LOCAL_OPTIONS } from '@/lib/locaisCulto'
-import { GRUPO_LABEL, TIPO_LABEL, FASES_ATIVAS, RelatorioPDF, type DadosRelatorio } from '@/lib/relatorio-pdf'
+import { GRUPO_LABEL, TIPO_LABEL, SEXO_LABEL, SUBTIPO_LABEL, FASES_ATIVAS, RelatorioPDF, type DadosRelatorio, type ContatoRelatorio } from '@/lib/relatorio-pdf'
 import { pdf } from '@react-pdf/renderer'
 import * as XLSX from 'xlsx'
-import { BarChart2, FileText, Table2, Loader2, Search, Users, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
+import { BarChart2, FileText, Table2, Loader2, Search, Users, FileSpreadsheet, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
 import type { FasePipeline, ContactGrupo, ContactTipo } from '@/types/database'
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
@@ -23,35 +23,7 @@ const LOCAIS_FLAT = LOCAL_OPTIONS.flatMap(g => g.items as unknown as string[])
 
 const POR_PAGINA = 25
 
-const SEXO_LABEL: Record<string, string> = { MASCULINO: 'Masculino', FEMININO: 'Feminino' }
-
-const SUBTIPO_LABEL: Record<string, string> = {
-  CONHECENDO: 'Estou conhecendo',
-  SEM_IGREJA: 'Não tem igreja local',
-  COM_IGREJA: 'Tem igreja local',
-}
-
 // ─── Tipos de filtro ──────────────────────────────────────────────────────────
-
-/** Registro individual exibido na lista nominal de cadastros do período. */
-interface ContatoLista {
-  id: string
-  nome: string
-  telefone: string | null
-  email: string | null
-  idade: number | null
-  sexo: string | null
-  tipo: ContactTipo
-  grupo: ContactGrupo
-  fase_pipeline: FasePipeline
-  local_culto: string | null
-  culto_captacao: string | null
-  status: string
-  subtipo_visitante: string | null
-  igreja_local_nome: string | null
-  created_at: string
-  voluntario: string
-}
 
 interface Filtros {
   dataInicio: string
@@ -76,11 +48,11 @@ export default function Relatorios() {
     tipo: '',
   })
   const [dados, setDados] = useState<DadosRelatorio | null>(null)
-  const [lista, setLista] = useState<ContatoLista[]>([])
+  const [lista, setLista] = useState<ContatoRelatorio[]>([])
   const [busca, setBusca] = useState('')
   const [pagina, setPagina] = useState(1)
   const [loading, setLoading] = useState(false)
-  const [exportando, setExportando] = useState<'pdf' | 'csv' | null>(null)
+  const [exportando, setExportando] = useState<'pdf' | 'csv' | 'xlsx' | null>(null)
   const [erro, setErro] = useState('')
 
   function setFiltro(campo: keyof Filtros, valor: string) {
@@ -213,7 +185,7 @@ export default function Relatorios() {
       }))
 
       // — Lista nominal (todos os cadastrados do período, mais recentes primeiro)
-      const listaNominal: ContatoLista[] = cs
+      const listaNominal: ContatoRelatorio[] = cs
         .map((c: any) => ({
           id: c.id,
           nome: c.nome,
@@ -257,6 +229,7 @@ export default function Relatorios() {
         porIgrejaOrigem,
         porSexo,
         matrizTipoLocal,
+        listaContatos: listaNominal,
       })
     } catch (e: unknown) {
       setErro(e instanceof Error ? e.message : 'Erro ao carregar dados')
@@ -285,32 +258,97 @@ export default function Relatorios() {
 
   // ─── Export CSV ───────────────────────────────────────────────────────────
 
+  /** Linhas da lista nominal, prontas para planilha. */
+  function linhasCadastros() {
+    return lista.map(c => ({
+      'Nome':               c.nome,
+      'Telefone':           c.telefone ?? '',
+      'E-mail':             c.email ?? '',
+      'Idade':              c.idade ?? '',
+      'Sexo':               c.sexo ? SEXO_LABEL[c.sexo] ?? c.sexo : '',
+      'Tipo':               TIPO_LABEL[c.tipo] ?? c.tipo,
+      'Grupo':              GRUPO_LABEL[c.grupo] ?? c.grupo,
+      'Etapa':              FASE_LABELS[c.fase_pipeline] ?? c.fase_pipeline,
+      'Local do culto':     c.local_culto ?? '',
+      'Data entrada':       c.culto_captacao ? new Date(c.culto_captacao).toLocaleDateString('pt-BR') : '',
+      'Voluntário':         c.voluntario,
+      'Status':             c.status,
+      'Perfil visitante':   c.subtipo_visitante ? SUBTIPO_LABEL[c.subtipo_visitante] ?? '' : '',
+      'Igreja de origem':   c.igreja_local_nome ?? '',
+      'Cadastrado em':      new Date(c.created_at).toLocaleDateString('pt-BR'),
+    }))
+  }
+
   async function exportarCSV() {
     if (!lista.length) return
     setExportando('csv')
     try {
-      const rows = lista.map(c => ({
-        'Nome':               c.nome,
-        'Telefone':           c.telefone ?? '',
-        'E-mail':             c.email ?? '',
-        'Idade':              c.idade ?? '',
-        'Sexo':               c.sexo ? SEXO_LABEL[c.sexo] ?? c.sexo : '',
-        'Tipo':               TIPO_LABEL[c.tipo] ?? c.tipo,
-        'Grupo':              GRUPO_LABEL[c.grupo] ?? c.grupo,
-        'Etapa':              FASE_LABELS[c.fase_pipeline] ?? c.fase_pipeline,
-        'Local do culto':     c.local_culto ?? '',
-        'Data entrada':       c.culto_captacao ? new Date(c.culto_captacao).toLocaleDateString('pt-BR') : '',
-        'Voluntário':         c.voluntario,
-        'Status':             c.status,
-        'Perfil visitante':   c.subtipo_visitante ? SUBTIPO_LABEL[c.subtipo_visitante] ?? '' : '',
-        'Igreja de origem':   c.igreja_local_nome ?? '',
-        'Cadastrado em':      new Date(c.created_at).toLocaleDateString('pt-BR'),
-      }))
-
-      const ws = XLSX.utils.json_to_sheet(rows)
+      const ws = XLSX.utils.json_to_sheet(linhasCadastros())
       const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Relatório')
+      XLSX.utils.book_append_sheet(wb, ws, 'Cadastros')
       XLSX.writeFile(wb, `jornada-cadastros-${hoje}.csv`, { bookType: 'csv' })
+    } finally {
+      setExportando(null)
+    }
+  }
+
+  // ─── Export Excel (resumo + cadastros) ────────────────────────────────────
+
+  async function exportarExcel() {
+    if (!dados) return
+    setExportando('xlsx')
+    try {
+      const wb = XLSX.utils.book_new()
+
+      // Aba 1 — Resumo
+      const resumo: (string | number)[][] = [
+        ['Jornada CRM — Zion Church'],
+        ['Período', `${new Date(dados.meta.dataInicio).toLocaleDateString('pt-BR')} a ${new Date(dados.meta.dataFim).toLocaleDateString('pt-BR')}`],
+        ['Gerado em', new Date(dados.meta.geradoEm).toLocaleString('pt-BR')],
+        ['Gerado por', dados.meta.nomeRelator],
+        [],
+        ['Total de contatos', dados.meta.totalContatos],
+        ['Batizados no período', dados.batizados],
+        ['SLA vencido', dados.sla.over],
+        ['SLA em atenção', dados.sla.warn],
+        ['SLA em dia', dados.sla.ok],
+        [],
+        ['Por etapa do pipeline', 'Contatos'],
+        ...dados.porFase.map(f => [FASE_LABELS[f.fase] ?? f.fase, f.count]),
+        [],
+        ['Taxa de conversão', '%'],
+        ...dados.taxaConversao.map(t => [`${FASE_LABELS[t.de]} → ${FASE_LABELS[t.para]}`, `${t.taxa}%`]),
+        [],
+        ['Por grupo ministerial', 'Contatos'],
+        ...dados.porGrupo.map(g => [GRUPO_LABEL[g.grupo] ?? g.grupo, g.count]),
+        [],
+        ['Por tipo', 'Contatos'],
+        ...dados.porTipo.map(t => [TIPO_LABEL[t.tipo] ?? t.tipo, t.count]),
+        [],
+        ['Por local do culto', 'Contatos'],
+        ...dados.porLocal.map(l => [l.local, l.count]),
+        [],
+        ['Por voluntário', 'Contatos'],
+        ...dados.porVoluntario.map(v => [v.nome, v.totalContatos]),
+      ]
+      if (dados.porIgrejaOrigem.length > 0) {
+        resumo.push([], ['Visitantes por igreja de origem', 'Contatos'],
+          ...dados.porIgrejaOrigem.map(ig => [ig.nome, ig.count]))
+      }
+      const wsResumo = XLSX.utils.aoa_to_sheet(resumo)
+      wsResumo['!cols'] = [{ wch: 38 }, { wch: 16 }]
+      XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo')
+
+      // Aba 2 — Cadastros (lista nominal)
+      const wsLista = XLSX.utils.json_to_sheet(linhasCadastros())
+      wsLista['!cols'] = [
+        { wch: 28 }, { wch: 18 }, { wch: 26 }, { wch: 6 }, { wch: 10 }, { wch: 18 },
+        { wch: 12 }, { wch: 16 }, { wch: 26 }, { wch: 13 }, { wch: 20 }, { wch: 12 },
+        { wch: 20 }, { wch: 24 }, { wch: 13 },
+      ]
+      XLSX.utils.book_append_sheet(wb, wsLista, 'Cadastros')
+
+      XLSX.writeFile(wb, `jornada-relatorio-${hoje}.xlsx`)
     } finally {
       setExportando(null)
     }
@@ -419,6 +457,11 @@ export default function Relatorios() {
                 className="flex items-center gap-2 text-sm border border-border text-muted-foreground px-4 py-2.5 rounded-xl hover:border-menta-light hover:text-menta-light transition-colors disabled:opacity-50">
                 {exportando === 'pdf' ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
                 {exportando === 'pdf' ? 'Gerando PDF...' : 'Exportar PDF'}
+              </button>
+              <button onClick={exportarExcel} disabled={!!exportando}
+                className="flex items-center gap-2 text-sm border border-border text-muted-foreground px-4 py-2.5 rounded-xl hover:border-menta-light hover:text-menta-light transition-colors disabled:opacity-50">
+                {exportando === 'xlsx' ? <Loader2 size={14} className="animate-spin" /> : <FileSpreadsheet size={14} />}
+                {exportando === 'xlsx' ? 'Gerando Excel...' : 'Exportar Excel'}
               </button>
               <button onClick={exportarCSV} disabled={!!exportando}
                 className="flex items-center gap-2 text-sm border border-border text-muted-foreground px-4 py-2.5 rounded-xl hover:border-menta-light hover:text-menta-light transition-colors disabled:opacity-50">
