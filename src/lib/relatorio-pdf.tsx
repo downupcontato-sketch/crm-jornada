@@ -71,6 +71,8 @@ export interface DadosRelatorio {
   taxaConversao: { de: FasePipeline; para: FasePipeline; taxa: number }[]
   sla: { ok: number; warn: number; over: number }
   batizados: number
+  /** Cadastros do período ainda aguardando aprovação. */
+  pendentesAprovacao?: number
   porVoluntario: { id: string; nome: string; grupo: string; totalContatos: number }[]
   porIgrejaOrigem: { nome: string; count: number }[]
   porSexo?: { sexo: string; count: number }[]
@@ -162,7 +164,7 @@ function MatrizPDF({ titulo, rows }: { titulo: string; rows: MatrizRow[] }) {
 // ─── Componente PDF ───────────────────────────────────────────────────────────
 
 export function RelatorioPDF({ dados }: { dados: DadosRelatorio }) {
-  const { meta, porFase, porGrupo, porLocal, porTipo, taxaConversao, sla, batizados, porVoluntario, porIgrejaOrigem, porSexo, matrizTipoLocal, listaContatos } = dados
+  const { meta, porFase, porGrupo, porLocal, porTipo, taxaConversao, sla, batizados, pendentesAprovacao, porVoluntario, porIgrejaOrigem, porSexo, matrizTipoLocal, listaContatos } = dados
   const matrizCampus      = (matrizTipoLocal ?? []).filter(r => LOCAIS_CAMPUS.has(r.local as any))
   const matrizGeracionais = (matrizTipoLocal ?? []).filter(r => LOCAIS_GERACIONAIS.has(r.local as any))
   const dataInicio = new Date(meta.dataInicio).toLocaleDateString('pt-BR')
@@ -186,6 +188,12 @@ export function RelatorioPDF({ dados }: { dados: DadosRelatorio }) {
             <Text style={s.metaNum}>{meta.totalContatos}</Text>
             <Text style={s.metaLabel}>Total de contatos</Text>
           </View>
+          {!!pendentesAprovacao && (
+            <View style={s.metaCard}>
+              <Text style={[s.metaNum, { color: C.amber }]}>{pendentesAprovacao}</Text>
+              <Text style={s.metaLabel}>Aguardando aprovação</Text>
+            </View>
+          )}
           <View style={s.metaCard}>
             <Text style={s.metaNum}>{batizados}</Text>
             <Text style={s.metaLabel}>Batizados no período</Text>

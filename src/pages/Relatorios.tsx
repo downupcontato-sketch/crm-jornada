@@ -23,6 +23,17 @@ const LOCAIS_FLAT = LOCAL_OPTIONS.flatMap(g => g.items as unknown as string[])
 
 const POR_PAGINA = 25
 
+const STATUS_APROVADOS = ['ativo', 'sem_resposta', 'encaminhado', 'batizado']
+
+/** Situações do cadastro que o relatório pode abranger. */
+const SITUACOES = {
+  com_pendentes: { label: 'Aprovados + pendentes', status: [...STATUS_APROVADOS, 'pendente_aprovacao'] },
+  aprovados:     { label: 'Somente aprovados',     status: STATUS_APROVADOS },
+  todos:         { label: 'Todos (inclui arquivados)', status: null },
+} as const
+
+type Situacao = keyof typeof SITUACOES
+
 // ─── Tipos de filtro ──────────────────────────────────────────────────────────
 
 interface Filtros {
@@ -32,6 +43,7 @@ interface Filtros {
   fase: string
   localCulto: string
   tipo: string
+  situacao: Situacao
 }
 
 // ─── Componente ───────────────────────────────────────────────────────────────
@@ -46,6 +58,7 @@ export default function Relatorios() {
     fase: '',
     localCulto: '',
     tipo: '',
+    situacao: 'com_pendentes',
   })
   const [dados, setDados] = useState<DadosRelatorio | null>(null)
   const [lista, setLista] = useState<ContatoRelatorio[]>([])
@@ -55,7 +68,7 @@ export default function Relatorios() {
   const [exportando, setExportando] = useState<'pdf' | 'csv' | 'xlsx' | null>(null)
   const [erro, setErro] = useState('')
 
-  function setFiltro(campo: keyof Filtros, valor: string) {
+  function setFiltro<K extends keyof Filtros>(campo: K, valor: Filtros[K]) {
     setFiltros(f => ({ ...f, [campo]: valor }))
   }
 
@@ -74,9 +87,11 @@ export default function Relatorios() {
           voluntario_atribuido_id, subtipo_visitante, igreja_local_nome, sexo,
           profiles!contacts_voluntario_atribuido_id_fkey(nome)
         `)
-        .in('status', ['ativo', 'sem_resposta', 'encaminhado', 'batizado'])
-        .gte('created_at', filtros.dataInicio)
-        .lte('created_at', filtros.dataFim + 'T23:59:59')
+        .gte('created_at', new Date(`${filtros.dataInicio}T00:00:00`).toISOString())
+        .lte('created_at', new Date(`${filtros.dataFim}T23:59:59.999`).toISOString())
+
+      const statusAbrangidos = SITUACOES[filtros.situacao].status
+      if (statusAbrangidos) q = q.in('status', statusAbrangidos)
 
       // Filtro de grupo: líder só vê o próprio grupo
       if (isLider && !isAdmin) {
@@ -176,6 +191,9 @@ export default function Relatorios() {
       // — Batizados
       const batizados = cs.filter(c => c.fase_pipeline === 'BATIZADO').length
 
+      // — Aguardando aprovação (aba "Novos Cadastros" da Gestão de Leads)
+      const pendentesAprovacao = cs.filter(c => c.status === 'pendente_aprovacao').length
+
       // — Por voluntário
       const porVoluntario = (voluntarios ?? []).map(v => ({
         id: v.id,
@@ -225,6 +243,7 @@ export default function Relatorios() {
         taxaConversao,
         sla,
         batizados,
+        pendentesAprovacao,
         porVoluntario,
         porIgrejaOrigem,
         porSexo,
@@ -308,6 +327,8 @@ export default function Relatorios() {
         ['Gerado por', dados.meta.nomeRelator],
         [],
         ['Total de contatos', dados.meta.totalContatos],
+        ['Aguardando aprovação', dados.pendentesAprovacao ?? 0],
+        ['Situação abrangida', SITUACOES[filtros.situacao].label],
         ['Batizados no período', dados.batizados],
         ['SLA vencido', dados.sla.over],
         ['SLA em atenção', dados.sla.warn],
@@ -435,6 +456,14 @@ export default function Relatorios() {
             </select>
           </div>
           <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">Situação</label>
+            <select value={filtros.situacao} onChange={e => setFiltro('situacao', e.target.value as Situacao)} className={selectCls}>
+              {(Object.keys(SITUACOES) as Situacao[]).map(k => (
+                <option key={k} value={k}>{SITUACOES[k].label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground">Local do culto</label>
             <select value={filtros.localCulto} onChange={e => setFiltro('localCulto', e.target.value)} className={selectCls}>
               <option value="">Todos</option>
@@ -480,9 +509,12 @@ export default function Relatorios() {
         <div className="space-y-5">
 
           {/* Cards de resumo */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className={`grid grid-cols-2 gap-4 ${dados.pendentesAprovacao ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
             {[
               { label: 'Total de contatos', value: dados.meta.totalContatos, color: 'text-menta-light' },
+              ...(dados.pendentesAprovacao
+                ? [{ label: 'Aguardando aprovação', value: dados.pendentesAprovacao, color: 'text-orange-400' }]
+                : []),
               { label: 'Batizados no período', value: dados.batizados, color: 'text-menta-light' },
               { label: 'SLA vencido', value: dados.sla.over, color: dados.sla.over > 0 ? 'text-red-400' : 'text-menta-light' },
               { label: 'SLA em atenção', value: dados.sla.warn, color: dados.sla.warn > 0 ? 'text-yellow-400' : 'text-menta-light' },
@@ -553,9 +585,15 @@ export default function Relatorios() {
                           </td>
                           <td className="py-2.5 pr-3 text-muted-foreground text-xs">{GRUPO_LABEL[c.grupo] ?? c.grupo}</td>
                           <td className="py-2.5 pr-3 text-xs whitespace-nowrap">
-                            <span className="inline-block px-2 py-0.5 rounded-full bg-muted/30 text-offwhite">
-                              {FASE_LABELS[c.fase_pipeline] ?? c.fase_pipeline}
-                            </span>
+                            {c.status === 'pendente_aprovacao' ? (
+                              <span className="inline-block px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/20">
+                                Aguardando aprovação
+                              </span>
+                            ) : (
+                              <span className="inline-block px-2 py-0.5 rounded-full bg-muted/30 text-offwhite">
+                                {FASE_LABELS[c.fase_pipeline] ?? c.fase_pipeline}
+                              </span>
+                            )}
                           </td>
                           <td className="py-2.5 pr-3 text-muted-foreground text-xs truncate max-w-[160px]">{c.local_culto ?? '—'}</td>
                           <td className="py-2.5 pr-3 text-muted-foreground text-xs truncate max-w-[140px]">{c.voluntario || '—'}</td>
