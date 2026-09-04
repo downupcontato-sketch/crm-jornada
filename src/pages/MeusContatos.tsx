@@ -117,7 +117,10 @@ export default function MeusContatos() {
   })
 
   const filtered = contacts?.filter(c => {
-    const ms = !search || c.nome.toLowerCase().includes(search.toLowerCase()) || c.telefone.includes(search)
+    const digitos = search.replace(/\D/g, '')
+    const ms = !search
+      || c.nome.toLowerCase().includes(search.toLowerCase())
+      || (digitos.length >= 3 && c.telefone.replace(/\D/g, '').includes(digitos))
     const mf = filter === 'ativos'      ? c.status === 'ativo'
              : filter === 'sla_vencido' ? calcularSLAFase(c) === 'over'
              : filter === 'sem_resposta'? c.status === 'sem_resposta'

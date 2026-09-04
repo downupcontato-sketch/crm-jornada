@@ -39,6 +39,24 @@ type ContactComVol = Contact & { profiles?: { id: string; nome: string } | null 
 
 interface Filtros { busca: string; grupo: string; status: string; tipo: string; voluntario: string; page: number }
 
+// Monta o filtro de busca aceitando telefone em qualquer formatação.
+// telefone_digits é a coluna gerada (só dígitos), então o que o usuário digitar
+// encontra tanto o cadastro em E.164 quanto o antigo com máscara.
+function buscaFiltro(busca: string): string {
+  const termo = busca.replace(/[,()]/g, ' ').trim()
+  const digitos = busca.replace(/\D/g, '')
+  const ors = [`nome.ilike.%${termo}%`]
+  if (digitos.length >= 3) {
+    ors.push(`telefone_digits.like.%${digitos}%`)
+    // Digitou com DDI: casa também com os cadastros gravados sem o 55.
+    const semDdi = digitos.replace(/^55(?=\d{10,11}$)/, '')
+    if (semDdi !== digitos) ors.push(`telefone_digits.like.%${semDdi}%`)
+  } else {
+    ors.push(`telefone.ilike.%${termo}%`)
+  }
+  return ors.join(',')
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function GestaoLeads() {
@@ -74,15 +92,16 @@ export default function GestaoLeads() {
       let q = supabase
         .from('contacts')
         .select('*,profiles!contacts_voluntario_atribuido_id_fkey(id,nome)', { count: 'exact' })
-        .neq('status', 'arquivado')
         .order('created_at', { ascending: false })
         .range((filtros.page - 1) * PER_PAGE, filtros.page * PER_PAGE - 1)
 
       if (filtros.busca) {
-        q = q.or(`nome.ilike.%${filtros.busca}%,telefone.ilike.%${filtros.busca}%`)
+        q = q.or(buscaFiltro(filtros.busca))
       }
       if (filtros.grupo) q = q.eq('grupo', filtros.grupo)
+      // Arquivados ficam fora por padrão; só aparecem quando filtrados de propósito.
       if (filtros.status) q = q.eq('status', filtros.status)
+      else q = q.neq('status', 'arquivado')
       if (filtros.tipo) q = q.eq('tipo', filtros.tipo)
       if (filtros.voluntario) q = q.eq('voluntario_atribuido_id', filtros.voluntario)
 
@@ -344,8 +363,8 @@ export default function GestaoLeads() {
           {GRUPOS.map(g => <option key={g} value={g}>{getGrupoLabel(g)}</option>)}
         </select>
         <select className="zion-input text-sm" value={filtros.status} onChange={e => setFiltro('status', e.target.value)}>
-          <option value="">Todos os status</option>
-          {Object.entries(STATUS_BADGE).filter(([k]) => k !== 'arquivado').map(([k, v]) =>
+          <option value="">Todos (exceto arquivados)</option>
+          {Object.entries(STATUS_BADGE).map(([k, v]) =>
             <option key={k} value={k}>{v.label}</option>
           )}
         </select>

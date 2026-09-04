@@ -79,6 +79,8 @@ export interface Contact {
   church_id: string
   nome: string
   telefone: string
+  /** Coluna gerada no banco: telefone só com dígitos, usada na busca. */
+  telefone_digits?: string
   whatsapp_valido: boolean
   email: string | null
   tipo: ContactTipo
