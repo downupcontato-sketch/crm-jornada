@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -7,7 +7,8 @@ import { LOCAL_OPTIONS } from '@/lib/locaisCulto'
 import { GRUPO_LABEL, TIPO_LABEL, SEXO_LABEL, SUBTIPO_LABEL, FASES_ATIVAS, RelatorioPDF, type DadosRelatorio, type ContatoRelatorio } from '@/lib/relatorio-pdf'
 import { pdf } from '@react-pdf/renderer'
 import * as XLSX from 'xlsx'
-import { BarChart2, FileText, Table2, Loader2, Search, Users, FileSpreadsheet, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react'
+import { linkWhatsApp, aplicarVariaveis, telefoneDiscavel, VARIAVEIS_MENSAGEM, type DadosMensagem } from '@/lib/whatsapp'
+import { BarChart2, FileText, Table2, Loader2, Search, Users, FileSpreadsheet, ChevronLeft, ChevronRight, ExternalLink, MessageCircle, RotateCcw } from 'lucide-react'
 import type { FasePipeline, ContactGrupo, ContactTipo } from '@/types/database'
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
@@ -23,7 +24,27 @@ const LOCAIS_FLAT = LOCAL_OPTIONS.flatMap(g => g.items as unknown as string[])
 
 const POR_PAGINA = 25
 
+/** Mensagem inicial do disparo; o usuário edita e fica salva no navegador. */
+const MENSAGEM_PADRAO =
+  'Olá {primeiro_nome}, tudo bem? Aqui é da Zion Church. Vi que você passou por aqui e queria saber como você está!'
+
+const MENSAGEM_STORAGE_KEY = 'jornada:relatorio:mensagem-whatsapp'
+
+const FILTROS_STORAGE_KEY = 'jornada:relatorio:filtros'
+const BUSCA_STORAGE_KEY = 'jornada:relatorio:busca'
+
 const STATUS_APROVADOS = ['ativo', 'sem_resposta', 'encaminhado', 'batizado']
+
+const STATUS_LABEL: Record<string, string> = {
+  ativo: 'Ativo',
+  sem_resposta: 'Sem resposta',
+  encaminhado: 'Encaminhado',
+  arquivado: 'Arquivado',
+  batizado: 'Batizado',
+  reciclado: 'Reciclado',
+  pendente_aprovacao: 'Aguardando aprovação',
+  inativo: 'Inativo',
+}
 
 /** Situações do cadastro que o relatório pode abranger. */
 const SITUACOES = {
@@ -46,30 +67,67 @@ interface Filtros {
   situacao: Situacao
 }
 
+const FILTROS_PADRAO: Filtros = {
+  dataInicio: ha30,
+  dataFim: hoje,
+  grupo: '',
+  fase: '',
+  localCulto: '',
+  tipo: '',
+  situacao: 'com_pendentes',
+}
+
+/**
+ * Filtros da última visita. Sair da página e voltar não deve custar a
+ * reconfiguração inteira, então eles ficam no navegador.
+ */
+function carregarFiltros(): Filtros {
+  try {
+    const bruto = localStorage.getItem(FILTROS_STORAGE_KEY)
+    if (!bruto) return FILTROS_PADRAO
+    const salvo = JSON.parse(bruto) as Partial<Filtros>
+    return {
+      ...FILTROS_PADRAO,
+      ...salvo,
+      // Situação inválida (renomeada numa versão futura) não pode quebrar a tela.
+      situacao: salvo.situacao && salvo.situacao in SITUACOES ? salvo.situacao : FILTROS_PADRAO.situacao,
+    }
+  } catch {
+    return FILTROS_PADRAO
+  }
+}
+
 // ─── Componente ───────────────────────────────────────────────────────────────
 
 export default function Relatorios() {
   const { profile, isAdmin, isLider } = useAuth()
 
-  const [filtros, setFiltros] = useState<Filtros>({
-    dataInicio: ha30,
-    dataFim: hoje,
-    grupo: '',
-    fase: '',
-    localCulto: '',
-    tipo: '',
-    situacao: 'com_pendentes',
-  })
+  const [filtros, setFiltros] = useState<Filtros>(() => carregarFiltros())
+  const jaRestaurou = useRef(false)
   const [dados, setDados] = useState<DadosRelatorio | null>(null)
   const [lista, setLista] = useState<ContatoRelatorio[]>([])
-  const [busca, setBusca] = useState('')
+  const [busca, setBusca] = useState(() => {
+    try { return localStorage.getItem(BUSCA_STORAGE_KEY) ?? '' } catch { return '' }
+  })
   const [pagina, setPagina] = useState(1)
   const [loading, setLoading] = useState(false)
-  const [exportando, setExportando] = useState<'pdf' | 'csv' | 'xlsx' | null>(null)
+  const [exportando, setExportando] = useState<'pdf' | 'csv' | 'xlsx' | 'contato' | null>(null)
+  const [mensagem, setMensagem] = useState(() => {
+    try { return localStorage.getItem(MENSAGEM_STORAGE_KEY) ?? MENSAGEM_PADRAO } catch { return MENSAGEM_PADRAO }
+  })
   const [erro, setErro] = useState('')
 
   function setFiltro<K extends keyof Filtros>(campo: K, valor: Filtros[K]) {
-    setFiltros(f => ({ ...f, [campo]: valor }))
+    setFiltros(f => {
+      const proximo = { ...f, [campo]: valor }
+      try { localStorage.setItem(FILTROS_STORAGE_KEY, JSON.stringify(proximo)) } catch { /* modo privado */ }
+      return proximo
+    })
+  }
+
+  function setBuscaPersistida(v: string) {
+    setBusca(v)
+    try { localStorage.setItem(BUSCA_STORAGE_KEY, v) } catch { /* modo privado */ }
   }
 
   // ─── Busca e agrega dados ─────────────────────────────────────────────────
@@ -257,6 +315,16 @@ export default function Relatorios() {
     }
   }
 
+  // Ao voltar para a página, refaz o relatório com os filtros guardados.
+  useEffect(() => {
+    if (jaRestaurou.current || !profile) return
+    jaRestaurou.current = true
+    let salvos = false
+    try { salvos = !!localStorage.getItem(FILTROS_STORAGE_KEY) } catch { salvos = false }
+    if (salvos) void gerarRelatorio()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile])
+
   // ─── Export PDF ───────────────────────────────────────────────────────────
 
   async function exportarPDF() {
@@ -370,6 +438,85 @@ export default function Relatorios() {
       XLSX.utils.book_append_sheet(wb, wsLista, 'Cadastros')
 
       XLSX.writeFile(wb, `jornada-relatorio-${hoje}.xlsx`)
+    } finally {
+      setExportando(null)
+    }
+  }
+
+  // ─── Lista de contato (Excel com links de WhatsApp) ───────────────────────
+
+  function salvarMensagem(v: string) {
+    setMensagem(v)
+    try { localStorage.setItem(MENSAGEM_STORAGE_KEY, v) } catch { /* modo privado */ }
+  }
+
+  function dadosMensagem(c: ContatoRelatorio): DadosMensagem {
+    return {
+      nome: c.nome,
+      grupo: GRUPO_LABEL[c.grupo] ?? c.grupo,
+      etapa: FASE_LABELS[c.fase_pipeline] ?? c.fase_pipeline,
+      voluntario: c.voluntario,
+      local: c.local_culto ?? '',
+    }
+  }
+
+  /**
+   * Planilha de contato: uma linha por cadastro, com o link de WhatsApp já
+   * carregando a mensagem e um link que abre o lead na plataforma.
+   */
+  async function exportarExcelContato() {
+    if (!listaFiltrada.length) return
+    setExportando('contato')
+    try {
+      const origem = window.location.origin
+      const cabecalho = [
+        'Nome', 'Telefone', 'Data de cadastro', 'Status', 'Etapa', 'Grupo',
+        'Local do culto', 'Voluntário', 'WhatsApp', 'Abrir no CRM', 'Mensagem',
+      ]
+
+      const linhas = listaFiltrada.map(c => {
+        const d = dadosMensagem(c)
+        return {
+          celulas: [
+            c.nome,
+            c.telefone ?? '',
+            new Date(c.created_at).toLocaleDateString('pt-BR'),
+            STATUS_LABEL[c.status] ?? c.status,
+            FASE_LABELS[c.fase_pipeline] ?? c.fase_pipeline,
+            GRUPO_LABEL[c.grupo] ?? c.grupo,
+            c.local_culto ?? '',
+            c.voluntario,
+            telefoneDiscavel(c.telefone) ? 'Abrir WhatsApp' : 'Sem telefone válido',
+            'Abrir no CRM',
+            aplicarVariaveis(mensagem, d),
+          ],
+          wa: linkWhatsApp(c.telefone, mensagem, d),
+          crm: `${origem}/contato/${c.id}`,
+        }
+      })
+
+      const ws = XLSX.utils.aoa_to_sheet([cabecalho, ...linhas.map(l => l.celulas)])
+
+      // Hyperlinks: coluna I (WhatsApp) e J (Abrir no CRM), a partir da linha 2.
+      linhas.forEach((l, i) => {
+        const linha = i + 2
+        if (l.wa) {
+          const cel = ws[`I${linha}`]
+          if (cel) cel.l = { Target: l.wa, Tooltip: 'Abrir conversa no WhatsApp' }
+        }
+        const celCrm = ws[`J${linha}`]
+        if (celCrm) celCrm.l = { Target: l.crm, Tooltip: 'Abrir o lead na plataforma' }
+      })
+
+      ws['!cols'] = [
+        { wch: 28 }, { wch: 18 }, { wch: 16 }, { wch: 20 }, { wch: 20 },
+        { wch: 14 }, { wch: 22 }, { wch: 20 }, { wch: 16 }, { wch: 14 }, { wch: 60 },
+      ]
+      ws['!autofilter'] = { ref: `A1:K${linhas.length + 1}` }
+
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Contato')
+      XLSX.writeFile(wb, `jornada-contato-${filtros.dataInicio}_a_${filtros.dataFim}.xlsx`)
     } finally {
       setExportando(null)
     }
@@ -492,6 +639,11 @@ export default function Relatorios() {
                 {exportando === 'xlsx' ? <Loader2 size={14} className="animate-spin" /> : <FileSpreadsheet size={14} />}
                 {exportando === 'xlsx' ? 'Gerando Excel...' : 'Exportar Excel'}
               </button>
+              <button onClick={exportarExcelContato} disabled={!!exportando}
+                className="flex items-center gap-2 text-sm border border-menta-dark/50 text-menta-light px-4 py-2.5 rounded-xl hover:border-menta-light hover:bg-menta-dark/10 transition-colors disabled:opacity-50">
+                {exportando === 'contato' ? <Loader2 size={14} className="animate-spin" /> : <MessageCircle size={14} />}
+                {exportando === 'contato' ? 'Gerando lista...' : 'Excel de contato'}
+              </button>
               <button onClick={exportarCSV} disabled={!!exportando}
                 className="flex items-center gap-2 text-sm border border-border text-muted-foreground px-4 py-2.5 rounded-xl hover:border-menta-light hover:text-menta-light transition-colors disabled:opacity-50">
                 {exportando === 'csv' ? <Loader2 size={14} className="animate-spin" /> : <Table2 size={14} />}
@@ -526,6 +678,63 @@ export default function Relatorios() {
             ))}
           </div>
 
+          {/* Mensagem que vai nos links de WhatsApp */}
+          <div className="bg-card border border-border rounded-2xl p-5 space-y-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <MessageCircle size={16} className="text-menta-light" />
+                <h3 className="text-sm font-medium text-offwhite">Mensagem do WhatsApp</h3>
+              </div>
+              <button
+                onClick={() => salvarMensagem(MENSAGEM_PADRAO)}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-menta-light transition-colors"
+              >
+                <RotateCcw size={12} /> Restaurar padrão
+              </button>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Este texto vai junto em todos os links de WhatsApp da planilha. Editou aqui, os links
+              saem atualizados no próximo download.
+            </p>
+
+            <textarea
+              value={mensagem}
+              onChange={e => salvarMensagem(e.target.value)}
+              rows={3}
+              maxLength={600}
+              placeholder="Escreva a mensagem que abrirá no WhatsApp…"
+              className="w-full text-sm bg-input border border-border rounded-xl px-3 py-2 text-offwhite resize-y focus:outline-none focus:ring-1 focus:ring-menta-light"
+            />
+
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {VARIAVEIS_MENSAGEM.map(v => (
+                  <button
+                    key={v.chave}
+                    title={v.descricao}
+                    onClick={() => salvarMensagem(`${mensagem}${mensagem.endsWith(' ') || !mensagem ? '' : ' '}${v.chave}`)}
+                    className="text-[11px] font-mono px-2 py-1 rounded-lg border border-border text-muted-foreground hover:border-menta-light hover:text-menta-light transition-colors"
+                  >
+                    {v.chave}
+                  </button>
+                ))}
+              </div>
+              <span className="text-[11px] text-muted-foreground">{mensagem.length}/600</span>
+            </div>
+
+            {listaFiltrada[0] && (
+              <div className="bg-input/60 border border-border rounded-xl px-3 py-2">
+                <p className="text-[11px] text-muted-foreground mb-1">
+                  Prévia com {listaFiltrada[0].nome}
+                </p>
+                <p className="text-sm text-offwhite whitespace-pre-wrap">
+                  {aplicarVariaveis(mensagem, dadosMensagem(listaFiltrada[0])) || '—'}
+                </p>
+              </div>
+            )}
+          </div>
+
           {/* Lista nominal de cadastros do período */}
           <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
             <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -541,7 +750,7 @@ export default function Relatorios() {
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   value={busca}
-                  onChange={e => { setBusca(e.target.value); setPagina(1) }}
+                  onChange={e => { setBuscaPersistida(e.target.value); setPagina(1) }}
                   placeholder="Buscar por nome, telefone ou e-mail"
                   className="text-sm bg-input border border-border rounded-xl pl-9 pr-3 py-2 text-offwhite w-72 max-w-full focus:outline-none focus:ring-1 focus:ring-menta-light"
                 />
@@ -558,7 +767,7 @@ export default function Relatorios() {
                   <table className="w-full text-sm min-w-[900px]">
                     <thead>
                       <tr className="border-b border-border">
-                        {['Nome', 'Contato', 'Perfil', 'Grupo', 'Etapa', 'Local do culto', 'Voluntário', 'Cadastro', ''].map((h, i) => (
+                        {['Nome', 'Contato', 'Perfil', 'Grupo', 'Etapa', 'Local do culto', 'Voluntário', 'Cadastro', '', ''].map((h, i) => (
                           <th key={i} className="text-left text-xs text-muted-foreground font-medium pb-2 pr-3 whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
@@ -599,6 +808,23 @@ export default function Relatorios() {
                           <td className="py-2.5 pr-3 text-muted-foreground text-xs truncate max-w-[140px]">{c.voluntario || '—'}</td>
                           <td className="py-2.5 pr-3 text-muted-foreground text-xs whitespace-nowrap">
                             {new Date(c.created_at).toLocaleDateString('pt-BR')}
+                          </td>
+                          <td className="py-2.5 pr-2">
+                            {linkWhatsApp(c.telefone, mensagem, dadosMensagem(c)) ? (
+                              <a
+                                href={linkWhatsApp(c.telefone, mensagem, dadosMensagem(c))!}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Abrir conversa no WhatsApp"
+                                className="text-muted-foreground hover:text-menta-light transition-colors inline-flex"
+                              >
+                                <MessageCircle size={14} />
+                              </a>
+                            ) : (
+                              <span className="text-muted-foreground/40 inline-flex" title="Sem telefone válido">
+                                <MessageCircle size={14} />
+                              </span>
+                            )}
                           </td>
                           <td className="py-2.5">
                             <Link to={`/contato/${c.id}`} title="Abrir contato"
