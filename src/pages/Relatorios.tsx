@@ -60,11 +60,11 @@ type Situacao = keyof typeof SITUACOES
 interface Filtros {
   dataInicio: string
   dataFim: string
-  /** Vazio = todos os grupos. */
+  /** Listas vazias significam "todos". */
   grupos: ContactGrupo[]
-  fase: string
-  localCulto: string
-  tipo: string
+  fases: FasePipeline[]
+  locais: string[]
+  tipos: ContactTipo[]
   situacao: Situacao
 }
 
@@ -72,9 +72,9 @@ const FILTROS_PADRAO: Filtros = {
   dataInicio: ha30,
   dataFim: hoje,
   grupos: [],
-  fase: '',
-  localCulto: '',
-  tipo: '',
+  fases: [],
+  locais: [],
+  tipos: [],
   situacao: 'com_pendentes',
 }
 
@@ -86,15 +86,21 @@ function carregarFiltros(): Filtros {
   try {
     const bruto = localStorage.getItem(FILTROS_STORAGE_KEY)
     if (!bruto) return FILTROS_PADRAO
-    const salvo = JSON.parse(bruto) as Partial<Filtros> & { grupo?: string }
-    // Versões anteriores guardavam um único grupo em `grupo`.
-    const grupos = Array.isArray(salvo.grupos)
-      ? salvo.grupos.filter(g => GRUPOS.includes(g))
-      : salvo.grupo ? [salvo.grupo as ContactGrupo].filter(g => GRUPOS.includes(g)) : []
+    const salvo = JSON.parse(bruto) as Partial<Filtros> & {
+      grupo?: string; fase?: string; tipo?: string; localCulto?: string
+    }
+    // Versões anteriores guardavam um valor único por campo.
+    function migrar<T extends string>(lista: unknown, unico: unknown, validos: readonly T[]): T[] {
+      if (Array.isArray(lista)) return lista.filter((v): v is T => validos.includes(v as T))
+      return typeof unico === 'string' && validos.includes(unico as T) ? [unico as T] : []
+    }
     return {
       ...FILTROS_PADRAO,
       ...salvo,
-      grupos,
+      grupos: migrar(salvo.grupos, salvo.grupo, GRUPOS),
+      fases:  migrar(salvo.fases, salvo.fase, FASES_FILTRO),
+      tipos:  migrar(salvo.tipos, salvo.tipo, TIPOS),
+      locais: migrar(salvo.locais, salvo.localCulto, LOCAIS_FLAT),
       // Situação inválida (renomeada numa versão futura) não pode quebrar a tela.
       situacao: salvo.situacao && salvo.situacao in SITUACOES ? salvo.situacao : FILTROS_PADRAO.situacao,
     }
@@ -164,9 +170,9 @@ export default function Relatorios() {
         q = q.in('grupo', filtros.grupos)
       }
 
-      if (filtros.fase)       q = q.eq('fase_pipeline', filtros.fase)
-      if (filtros.localCulto) q = q.eq('local_culto', filtros.localCulto)
-      if (filtros.tipo)       q = q.eq('tipo', filtros.tipo)
+      if (filtros.fases.length)  q = q.in('fase_pipeline', filtros.fases)
+      if (filtros.locais.length) q = q.in('local_culto', filtros.locais)
+      if (filtros.tipos.length)  q = q.in('tipo', filtros.tipos)
 
       const { data: contacts, error } = await q
       if (error) throw error
@@ -588,25 +594,37 @@ export default function Relatorios() {
           {isAdmin && (
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground">Grupo</label>
-              <SeletorGrupos
+              <SeletorMultiplo
+                opcoes={GRUPOS}
+                rotulo={g => GRUPO_LABEL[g] ?? g}
                 selecionados={filtros.grupos}
-                onChange={g => setFiltro('grupos', g)}
+                onChange={v => setFiltro('grupos', v)}
+                todos="Todos"
+                plural="grupos"
               />
             </div>
           )}
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground">Etapa</label>
-            <select value={filtros.fase} onChange={e => setFiltro('fase', e.target.value)} className={selectCls}>
-              <option value="">Todas</option>
-              {FASES_FILTRO.map(f => <option key={f} value={f}>{FASE_LABELS[f]}</option>)}
-            </select>
+            <SeletorMultiplo
+              opcoes={FASES_FILTRO}
+              rotulo={f => FASE_LABELS[f] ?? f}
+              selecionados={filtros.fases}
+              onChange={v => setFiltro('fases', v)}
+              todos="Todas"
+              plural="etapas"
+            />
           </div>
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground">Tipo</label>
-            <select value={filtros.tipo} onChange={e => setFiltro('tipo', e.target.value)} className={selectCls}>
-              <option value="">Todos</option>
-              {TIPOS.map(t => <option key={t} value={t}>{TIPO_LABEL[t]}</option>)}
-            </select>
+            <SeletorMultiplo
+              opcoes={TIPOS}
+              rotulo={t => TIPO_LABEL[t] ?? t}
+              selecionados={filtros.tipos}
+              onChange={v => setFiltro('tipos', v)}
+              todos="Todos"
+              plural="tipos"
+            />
           </div>
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground">Situação</label>
@@ -618,10 +636,14 @@ export default function Relatorios() {
           </div>
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground">Local do culto</label>
-            <select value={filtros.localCulto} onChange={e => setFiltro('localCulto', e.target.value)} className={selectCls}>
-              <option value="">Todos</option>
-              {LOCAIS_FLAT.map(l => <option key={l} value={l}>{l}</option>)}
-            </select>
+            <SeletorMultiplo
+              opcoes={LOCAIS_FLAT}
+              rotulo={l => l}
+              selecionados={filtros.locais}
+              onChange={v => setFiltro('locais', v)}
+              todos="Todos"
+              plural="locais"
+            />
           </div>
         </div>
 
@@ -1012,10 +1034,14 @@ export default function Relatorios() {
 const inputCls = 'w-full text-sm bg-input border border-border rounded-xl px-3 py-2 text-offwhite focus:outline-none focus:ring-1 focus:ring-menta-light'
 const selectCls = 'w-full text-sm bg-input border border-border rounded-xl px-3 py-2 text-offwhite focus:outline-none focus:ring-1 focus:ring-menta-light'
 
-/** Seleção de vários grupos: nenhum marcado significa todos. */
-function SeletorGrupos({ selecionados, onChange }: {
-  selecionados: ContactGrupo[]
-  onChange: (grupos: ContactGrupo[]) => void
+/** Seleção múltipla: nada marcado significa todos. */
+function SeletorMultiplo<T extends string>({ opcoes, rotulo, selecionados, onChange, todos, plural }: {
+  opcoes: readonly T[]
+  rotulo: (v: T) => string
+  selecionados: T[]
+  onChange: (v: T[]) => void
+  todos: string
+  plural: string
 }) {
   const [aberto, setAberto] = useState(false)
   const caixa = useRef<HTMLDivElement>(null)
@@ -1029,15 +1055,15 @@ function SeletorGrupos({ selecionados, onChange }: {
     return () => document.removeEventListener('mousedown', fora)
   }, [aberto])
 
-  function alternar(g: ContactGrupo) {
-    onChange(selecionados.includes(g) ? selecionados.filter(x => x !== g) : [...selecionados, g])
+  function alternar(v: T) {
+    onChange(selecionados.includes(v) ? selecionados.filter(x => x !== v) : [...selecionados, v])
   }
 
   const resumo = selecionados.length === 0
-    ? 'Todos'
+    ? todos
     : selecionados.length <= 2
-      ? selecionados.map(g => GRUPO_LABEL[g] ?? g).join(', ')
-      : `${selecionados.length} grupos`
+      ? selecionados.map(rotulo).join(', ')
+      : `${selecionados.length} ${plural}`
 
   return (
     <div className="relative" ref={caixa}>
@@ -1051,27 +1077,27 @@ function SeletorGrupos({ selecionados, onChange }: {
       </button>
 
       {aberto && (
-        <div className="absolute z-20 mt-1 w-full min-w-[200px] bg-card border border-border rounded-xl shadow-xl p-1.5 space-y-0.5">
+        <div className="absolute z-20 mt-1 w-full min-w-[200px] max-h-64 overflow-y-auto bg-card border border-border rounded-xl shadow-xl p-1.5 space-y-0.5">
           <button
             type="button"
             onClick={() => onChange([])}
             className={`w-full flex items-center gap-2 text-sm px-2.5 py-1.5 rounded-lg transition-colors hover:bg-muted/20 ${selecionados.length === 0 ? 'text-menta-light' : 'text-muted-foreground'}`}
           >
             <span className="w-4 shrink-0">{selecionados.length === 0 && <Check size={14} />}</span>
-            Todos
+            {todos}
           </button>
           <div className="h-px bg-border my-1" />
-          {GRUPOS.map(g => {
-            const marcado = selecionados.includes(g)
+          {opcoes.map(v => {
+            const marcado = selecionados.includes(v)
             return (
               <button
-                key={g}
+                key={v}
                 type="button"
-                onClick={() => alternar(g)}
-                className={`w-full flex items-center gap-2 text-sm px-2.5 py-1.5 rounded-lg transition-colors hover:bg-muted/20 ${marcado ? 'text-menta-light' : 'text-offwhite'}`}
+                onClick={() => alternar(v)}
+                className={`w-full flex items-center gap-2 text-sm px-2.5 py-1.5 rounded-lg text-left transition-colors hover:bg-muted/20 ${marcado ? 'text-menta-light' : 'text-offwhite'}`}
               >
                 <span className="w-4 shrink-0">{marcado && <Check size={14} />}</span>
-                {GRUPO_LABEL[g] ?? g}
+                <span className="truncate">{rotulo(v)}</span>
               </button>
             )
           })}
