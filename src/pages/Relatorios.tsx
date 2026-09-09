@@ -8,7 +8,7 @@ import { GRUPO_LABEL, TIPO_LABEL, SEXO_LABEL, SUBTIPO_LABEL, FASES_ATIVAS, Relat
 import { pdf } from '@react-pdf/renderer'
 import * as XLSX from 'xlsx'
 import { linkWhatsApp, aplicarVariaveis, telefoneDiscavel, VARIAVEIS_MENSAGEM, type DadosMensagem } from '@/lib/whatsapp'
-import { BarChart2, FileText, Table2, Loader2, Search, Users, FileSpreadsheet, ChevronLeft, ChevronRight, ExternalLink, MessageCircle, RotateCcw } from 'lucide-react'
+import { BarChart2, FileText, Table2, Loader2, Search, Users, FileSpreadsheet, ChevronLeft, ChevronRight, ExternalLink, MessageCircle, RotateCcw, ChevronDown, Check } from 'lucide-react'
 import type { FasePipeline, ContactGrupo, ContactTipo } from '@/types/database'
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
@@ -60,7 +60,8 @@ type Situacao = keyof typeof SITUACOES
 interface Filtros {
   dataInicio: string
   dataFim: string
-  grupo: string
+  /** Vazio = todos os grupos. */
+  grupos: ContactGrupo[]
   fase: string
   localCulto: string
   tipo: string
@@ -70,7 +71,7 @@ interface Filtros {
 const FILTROS_PADRAO: Filtros = {
   dataInicio: ha30,
   dataFim: hoje,
-  grupo: '',
+  grupos: [],
   fase: '',
   localCulto: '',
   tipo: '',
@@ -85,10 +86,15 @@ function carregarFiltros(): Filtros {
   try {
     const bruto = localStorage.getItem(FILTROS_STORAGE_KEY)
     if (!bruto) return FILTROS_PADRAO
-    const salvo = JSON.parse(bruto) as Partial<Filtros>
+    const salvo = JSON.parse(bruto) as Partial<Filtros> & { grupo?: string }
+    // Versões anteriores guardavam um único grupo em `grupo`.
+    const grupos = Array.isArray(salvo.grupos)
+      ? salvo.grupos.filter(g => GRUPOS.includes(g))
+      : salvo.grupo ? [salvo.grupo as ContactGrupo].filter(g => GRUPOS.includes(g)) : []
     return {
       ...FILTROS_PADRAO,
       ...salvo,
+      grupos,
       // Situação inválida (renomeada numa versão futura) não pode quebrar a tela.
       situacao: salvo.situacao && salvo.situacao in SITUACOES ? salvo.situacao : FILTROS_PADRAO.situacao,
     }
@@ -154,8 +160,8 @@ export default function Relatorios() {
       // Filtro de grupo: líder só vê o próprio grupo
       if (isLider && !isAdmin) {
         q = q.eq('grupo', profile?.grupo ?? '')
-      } else if (filtros.grupo && isAdmin) {
-        q = q.eq('grupo', filtros.grupo)
+      } else if (filtros.grupos.length && isAdmin) {
+        q = q.in('grupo', filtros.grupos)
       }
 
       if (filtros.fase)       q = q.eq('fase_pipeline', filtros.fase)
@@ -168,7 +174,7 @@ export default function Relatorios() {
       // Busca voluntários ativos para a tabela de capacidade
       let qVol = supabase.from('profiles').select('id, nome, grupo').eq('nivel', 'voluntario').eq('ativo', true)
       if (isLider && !isAdmin) qVol = qVol.eq('grupo', profile?.grupo ?? '')
-      else if (filtros.grupo && isAdmin) qVol = qVol.eq('grupo', filtros.grupo)
+      else if (filtros.grupos.length && isAdmin) qVol = qVol.in('grupo', filtros.grupos)
       const { data: voluntarios } = await qVol
 
       const cs = contacts ?? []
@@ -582,10 +588,10 @@ export default function Relatorios() {
           {isAdmin && (
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground">Grupo</label>
-              <select value={filtros.grupo} onChange={e => setFiltro('grupo', e.target.value)} className={selectCls}>
-                <option value="">Todos</option>
-                {GRUPOS.map(g => <option key={g} value={g}>{GRUPO_LABEL[g]}</option>)}
-              </select>
+              <SeletorGrupos
+                selecionados={filtros.grupos}
+                onChange={g => setFiltro('grupos', g)}
+              />
             </div>
           )}
           <div className="space-y-1.5">
@@ -1005,3 +1011,72 @@ export default function Relatorios() {
 
 const inputCls = 'w-full text-sm bg-input border border-border rounded-xl px-3 py-2 text-offwhite focus:outline-none focus:ring-1 focus:ring-menta-light'
 const selectCls = 'w-full text-sm bg-input border border-border rounded-xl px-3 py-2 text-offwhite focus:outline-none focus:ring-1 focus:ring-menta-light'
+
+/** Seleção de vários grupos: nenhum marcado significa todos. */
+function SeletorGrupos({ selecionados, onChange }: {
+  selecionados: ContactGrupo[]
+  onChange: (grupos: ContactGrupo[]) => void
+}) {
+  const [aberto, setAberto] = useState(false)
+  const caixa = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!aberto) return
+    function fora(e: MouseEvent) {
+      if (caixa.current && !caixa.current.contains(e.target as Node)) setAberto(false)
+    }
+    document.addEventListener('mousedown', fora)
+    return () => document.removeEventListener('mousedown', fora)
+  }, [aberto])
+
+  function alternar(g: ContactGrupo) {
+    onChange(selecionados.includes(g) ? selecionados.filter(x => x !== g) : [...selecionados, g])
+  }
+
+  const resumo = selecionados.length === 0
+    ? 'Todos'
+    : selecionados.length <= 2
+      ? selecionados.map(g => GRUPO_LABEL[g] ?? g).join(', ')
+      : `${selecionados.length} grupos`
+
+  return (
+    <div className="relative" ref={caixa}>
+      <button
+        type="button"
+        onClick={() => setAberto(a => !a)}
+        className={`${selectCls} flex items-center justify-between gap-2 text-left`}
+      >
+        <span className="truncate">{resumo}</span>
+        <ChevronDown size={14} className={`shrink-0 text-muted-foreground transition-transform ${aberto ? 'rotate-180' : ''}`} />
+      </button>
+
+      {aberto && (
+        <div className="absolute z-20 mt-1 w-full min-w-[200px] bg-card border border-border rounded-xl shadow-xl p-1.5 space-y-0.5">
+          <button
+            type="button"
+            onClick={() => onChange([])}
+            className={`w-full flex items-center gap-2 text-sm px-2.5 py-1.5 rounded-lg transition-colors hover:bg-muted/20 ${selecionados.length === 0 ? 'text-menta-light' : 'text-muted-foreground'}`}
+          >
+            <span className="w-4 shrink-0">{selecionados.length === 0 && <Check size={14} />}</span>
+            Todos
+          </button>
+          <div className="h-px bg-border my-1" />
+          {GRUPOS.map(g => {
+            const marcado = selecionados.includes(g)
+            return (
+              <button
+                key={g}
+                type="button"
+                onClick={() => alternar(g)}
+                className={`w-full flex items-center gap-2 text-sm px-2.5 py-1.5 rounded-lg transition-colors hover:bg-muted/20 ${marcado ? 'text-menta-light' : 'text-offwhite'}`}
+              >
+                <span className="w-4 shrink-0">{marcado && <Check size={14} />}</span>
+                {GRUPO_LABEL[g] ?? g}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
