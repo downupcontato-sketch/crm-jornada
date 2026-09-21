@@ -1,11 +1,35 @@
 import { useState } from 'react'
-import { CheckCircle, ChevronLeft } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { CheckCircle, ChevronLeft, ArrowLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
+import { distribuirLead } from '@/lib/distribuicao'
 import { calcularGrupo } from '@/lib/calcularGrupo'
 import { LOCAL_OPTIONS } from '@/lib/locaisCulto'
 import { DEFAULT_CHURCH_ID } from '@/lib/constants/church'
 import { PhoneInputInternacional, validatePhone } from '@/components/ui/PhoneInputInternacional'
 import type { ContactTipo, SubtipoVisitante } from '@/types/database'
+
+/** UUID v4. `crypto.randomUUID` exige contexto seguro e Safari recente. */
+function gerarId(): string {
+  const c = globalThis.crypto
+  if (typeof c?.randomUUID === 'function') return c.randomUUID()
+  const b = new Uint8Array(16)
+  c.getRandomValues(b)
+  b[6] = (b[6] & 0x0f) | 0x40
+  b[8] = (b[8] & 0x3f) | 0x80
+  const h = [...b].map(x => x.toString(16).padStart(2, '0')).join('')
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
+}
+
+/** Para onde cada papel volta: mandar todos ao /pipeline barraria o voluntário. */
+const ROTA_INICIAL: Record<string, string> = {
+  admin: '/dashboard',
+  lider: '/dashboard',
+  coordenador: '/dashboard/coordenador',
+  voluntario: '/meus-contatos',
+  linha_de_frente: '/pipeline',
+}
 
 // ─── Tipos internos ─────────────────────────────────────────────────────────
 
@@ -55,6 +79,11 @@ function emptyForm(): FormData {
 // ─── Componente ─────────────────────────────────────────────────────────────
 
 export default function FormularioPublico() {
+  // Esta rota é pública, mas o item "Novo Cadastro" da sidebar traz quem já está
+  // logado para cá. Sem um caminho de volta, a única saída é o botão do navegador.
+  const { profile, nivel } = useAuth()
+  /** Resultado da distribuição, mostrado só para quem cadastrou logado. */
+  const [avisoDistribuicao, setAvisoDistribuicao] = useState<string | null>(null)
   const [step, setStep] = useState(1)
   const [form, setForm] = useState<FormData>(emptyForm())
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -137,7 +166,19 @@ export default function FormularioPublico() {
       const grupo  = calcularGrupo(idade)
       const subtipo = isVisitante ? (form.subtipoVisitante || null) : null
 
+      // Cadastro feito por alguém logado já é conferido na origem: entra ativo e
+      // vai direto para a distribuição. Só o cadastro anônimo (QR code do culto)
+      // passa pela fila de aprovação.
+      const interno = !!profile
+
+      // O id é gerado aqui de propósito. Usar `.select()` depois do insert
+      // exigiria permissão de leitura sobre a linha criada, e a política de
+      // SELECT do contacts não cobre linha_de_frente nem voluntario — o
+      // cadastro entraria no banco e ainda assim mostraria erro na tela.
+      const novoId = gerarId()
+
       const { error } = await supabase.from('contacts').insert({
+        id:                 novoId,
         nome:               form.nome.trim(),
         telefone:           form.telefone,
         email:              null,
@@ -154,8 +195,8 @@ export default function FormularioPublico() {
         igreja_local_nome:  subtipo === 'COM_IGREJA' && form.igrejaLocalNome.trim()
                               ? form.igrejaLocalNome.trim()
                               : null,
-        captador_id:        null,
-        status:             'pendente_aprovacao',
+        captador_id:        profile?.id ?? null,
+        status:             interno ? 'ativo' : 'pendente_aprovacao',
         fase_pipeline:      'CONTATO_INICIAL',
         subetapa_contato:   'TENTATIVA_1',
         sla_status:         'ok',
@@ -163,6 +204,20 @@ export default function FormularioPublico() {
         autorizacao_contato: true,
       })
       if (error) throw error
+
+      // A distribuição não pode derrubar o cadastro: o contato já está salvo.
+      if (interno) {
+        try {
+          const dist = await distribuirLead(novoId)
+          setAvisoDistribuicao(
+            dist.tipo === 'AUTOMATICA' ? 'Lead distribuído automaticamente para um voluntário.'
+            : dist.tipo === 'FILA'     ? 'Todos os voluntários estão no limite. Lead na fila de espera.'
+            : 'Cadastro salvo, mas a distribuição automática falhou. Atribua pela Gestão de Leads.'
+          )
+        } catch {
+          setAvisoDistribuicao('Cadastro salvo, mas a distribuição automática falhou. Atribua pela Gestão de Leads.')
+        }
+      }
       setSuccess(true)
     } catch (err: unknown) {
       const msg = err instanceof Error
@@ -179,6 +234,7 @@ export default function FormularioPublico() {
     setErrors({})
     setStep(1)
     setSuccess(false)
+    setAvisoDistribuicao(null)
   }
 
   // ─── Tela de sucesso ───────────────────────────────────────────────────────
@@ -197,9 +253,11 @@ export default function FormularioPublico() {
         </p>
         <div className="mt-8 px-5 py-4 rounded-2xl max-w-xs w-full"
           style={{ background: '#0C1D23', border: '1px solid #1A3540' }}>
-          <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: '#3A5560' }}>Próximo passo</p>
+          <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: '#3A5560' }}>
+            {avisoDistribuicao ? 'Distribuição' : 'Próximo passo'}
+          </p>
           <p className="text-sm leading-relaxed" style={{ color: '#7A9FA8' }}>
-            Fique atento ao seu WhatsApp. Nosso time vai entrar em contato nas próximas 48 horas.
+            {avisoDistribuicao ?? 'Fique atento ao seu WhatsApp. Nosso time vai entrar em contato nas próximas 48 horas.'}
           </p>
         </div>
         <button onClick={reiniciar}
@@ -219,6 +277,17 @@ export default function FormularioPublico() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: '#050F12' }}>
+      {profile && (
+        <div className="px-4 pt-4">
+          <Link to={ROTA_INICIAL[nivel ?? ''] ?? '/pipeline'}
+            className="inline-flex items-center gap-1.5 text-xs transition-opacity hover:opacity-80"
+            style={{ color: '#5A7A82' }}>
+            <ArrowLeft size={14} />
+            Voltar ao CRM
+          </Link>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col items-center pt-10 pb-6 px-4">
         <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4"
