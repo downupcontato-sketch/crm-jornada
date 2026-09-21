@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
+import { Layout } from '@/components/layout/Layout'
 import { calcularSLAFase, FASE_LABELS } from '@/lib/pipeline'
 import { LOCAL_OPTIONS } from '@/lib/locaisCulto'
 import { GRUPO_LABEL, TIPO_LABEL, SEXO_LABEL, SUBTIPO_LABEL, FASES_ATIVAS, RelatorioPDF, type DadosRelatorio, type ContatoRelatorio } from '@/lib/relatorio-pdf'
@@ -13,8 +14,13 @@ import type { FasePipeline, ContactGrupo, ContactTipo } from '@/types/database'
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 
-const hoje = new Date().toISOString().split('T')[0]
-const ha30 = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+/** Data local no formato YYYY-MM-DD. Função, não constante: uma aba aberta
+ *  durante a madrugada não pode continuar com a data de ontem. */
+function diaISO(d = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+const hoje = () => diaISO()
+const ha30 = () => diaISO(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
 
 const GRUPOS: ContactGrupo[] = ['rise', 'flow', 'vox', 'ek', 'zion_geral']
 const TIPOS: ContactTipo[] = ['novo_nascimento', 'reconciliacao', 'visitante']
@@ -68,44 +74,57 @@ interface Filtros {
   situacao: Situacao
 }
 
-const FILTROS_PADRAO: Filtros = {
-  dataInicio: ha30,
-  dataFim: hoje,
-  grupos: [],
-  fases: [],
-  locais: [],
-  tipos: [],
-  situacao: 'com_pendentes',
+function filtrosPadrao(): Filtros {
+  return {
+    dataInicio: ha30(),
+    dataFim: hoje(),
+    grupos: [],
+    fases: [],
+    locais: [],
+    tipos: [],
+    situacao: 'com_pendentes',
+  }
 }
 
 /**
  * Filtros da última visita. Sair da página e voltar não deve custar a
  * reconfiguração inteira, então eles ficam no navegador.
+ *
+ * O período é a exceção: ele fica guardado junto com o dia em que foi salvo e
+ * só é restaurado dentro do mesmo dia. Um recorte escolhido na semana passada
+ * não pode continuar valendo hoje — quem abre o relatório para a reunião de
+ * liderança levaria um retrato velho sem perceber.
  */
 function carregarFiltros(): Filtros {
+  const padrao = filtrosPadrao()
   try {
     const bruto = localStorage.getItem(FILTROS_STORAGE_KEY)
-    if (!bruto) return FILTROS_PADRAO
+    if (!bruto) return padrao
     const salvo = JSON.parse(bruto) as Partial<Filtros> & {
       grupo?: string; fase?: string; tipo?: string; localCulto?: string
+      salvoEm?: string
     }
     // Versões anteriores guardavam um valor único por campo.
     function migrar<T extends string>(lista: unknown, unico: unknown, validos: readonly T[]): T[] {
       if (Array.isArray(lista)) return lista.filter((v): v is T => validos.includes(v as T))
       return typeof unico === 'string' && validos.includes(unico as T) ? [unico as T] : []
     }
+    const doMesmoDia = salvo.salvoEm === hoje()
     return {
-      ...FILTROS_PADRAO,
+      ...padrao,
       ...salvo,
+      // Período salvo em outro dia (ou por uma versão antiga, sem carimbo) volta ao padrão.
+      dataInicio: doMesmoDia && salvo.dataInicio ? salvo.dataInicio : padrao.dataInicio,
+      dataFim:    doMesmoDia && salvo.dataFim    ? salvo.dataFim    : padrao.dataFim,
       grupos: migrar(salvo.grupos, salvo.grupo, GRUPOS),
       fases:  migrar(salvo.fases, salvo.fase, FASES_FILTRO),
       tipos:  migrar(salvo.tipos, salvo.tipo, TIPOS),
       locais: migrar(salvo.locais, salvo.localCulto, LOCAIS_FLAT),
       // Situação inválida (renomeada numa versão futura) não pode quebrar a tela.
-      situacao: salvo.situacao && salvo.situacao in SITUACOES ? salvo.situacao : FILTROS_PADRAO.situacao,
+      situacao: salvo.situacao && salvo.situacao in SITUACOES ? salvo.situacao : padrao.situacao,
     }
   } catch {
-    return FILTROS_PADRAO
+    return padrao
   }
 }
 
@@ -132,7 +151,9 @@ export default function Relatorios() {
   function setFiltro<K extends keyof Filtros>(campo: K, valor: Filtros[K]) {
     setFiltros(f => {
       const proximo = { ...f, [campo]: valor }
-      try { localStorage.setItem(FILTROS_STORAGE_KEY, JSON.stringify(proximo)) } catch { /* modo privado */ }
+      // `salvoEm` carimba o dia: é ele que decide se o período volta a valer
+      // na próxima abertura (ver carregarFiltros).
+      try { localStorage.setItem(FILTROS_STORAGE_KEY, JSON.stringify({ ...proximo, salvoEm: hoje() })) } catch { /* modo privado */ }
       return proximo
     })
   }
@@ -347,7 +368,7 @@ export default function Relatorios() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `jornada-relatorio-${hoje}.pdf`
+      a.download = `jornada-relatorio-${hoje()}.pdf`
       a.click()
       URL.revokeObjectURL(url)
     } finally {
@@ -385,7 +406,7 @@ export default function Relatorios() {
       const ws = XLSX.utils.json_to_sheet(linhasCadastros())
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Cadastros')
-      XLSX.writeFile(wb, `jornada-cadastros-${hoje}.csv`, { bookType: 'csv' })
+      XLSX.writeFile(wb, `jornada-cadastros-${hoje()}.csv`, { bookType: 'csv' })
     } finally {
       setExportando(null)
     }
@@ -449,7 +470,7 @@ export default function Relatorios() {
       ]
       XLSX.utils.book_append_sheet(wb, wsLista, 'Cadastros')
 
-      XLSX.writeFile(wb, `jornada-relatorio-${hoje}.xlsx`)
+      XLSX.writeFile(wb, `jornada-relatorio-${hoje()}.xlsx`)
     } finally {
       setExportando(null)
     }
@@ -554,7 +575,8 @@ export default function Relatorios() {
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="max-w-5xl mx-auto py-8 px-4 space-y-6">
+    <Layout>
+      <div className="max-w-5xl mx-auto space-y-6">
 
       {/* Cabeçalho */}
       <div className="flex items-center gap-3">
@@ -1025,7 +1047,8 @@ export default function Relatorios() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </Layout>
   )
 }
 
