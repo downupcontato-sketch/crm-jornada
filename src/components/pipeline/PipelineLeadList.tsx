@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { calcularSLAFase, FASE_LABELS } from '@/lib/pipeline'
 import { CardLeadLista } from './CardLeadLista'
@@ -38,21 +38,43 @@ const DEFAULT_CHIP: Partial<Record<FasePipeline, string>> = {
   POS_AULA:        'enc:ENCAMINHADO',
 }
 
-function matchesChip(c: Contact, chipKey: string, fase: FasePipeline): boolean {
-  if (fase === 'AULAS') return true
-  if (fase === 'CONTATO_INICIAL') return c.subetapa_contato === chipKey
-  if (fase === 'QUALIFICACAO')    return c.subetapa_qualificacao === chipKey
-  if (fase === 'POS_AULA') {
-    if (chipKey.startsWith('enc:')) return c.subetapa_encaminhamento === chipKey.slice(4)
-    if (chipKey.startsWith('bat:')) return c.subetapa_batismo === chipKey.slice(4)
+// Lead sem subetapa (ou com valor fora dos chips) cai no chip padrão da fase.
+// Antes ele não casava com nenhum chip e sumia da lista, mesmo contando no total.
+function getChipKey(c: Contact, fase: FasePipeline): string {
+  const validos = (CHIPS[fase] ?? []).map(ch => ch.key)
+  if (fase === 'CONTATO_INICIAL' || fase === 'QUALIFICACAO') {
+    const sub = fase === 'CONTATO_INICIAL' ? c.subetapa_contato : c.subetapa_qualificacao
+    return sub && validos.includes(sub) ? sub : DEFAULT_CHIP[fase] ?? ''
   }
-  return false
+  return ''
 }
 
-function getChipKey(c: Contact, fase: FasePipeline): string {
-  if (fase === 'CONTATO_INICIAL') return c.subetapa_contato ?? ''
-  if (fase === 'QUALIFICACAO')    return c.subetapa_qualificacao ?? ''
-  return ''
+function matchesChip(c: Contact, chipKey: string, fase: FasePipeline): boolean {
+  if (fase === 'AULAS') return true
+  if (fase === 'POS_AULA') {
+    const semTrilha = !c.subetapa_encaminhamento && !c.subetapa_batismo
+    if (chipKey === DEFAULT_CHIP.POS_AULA && semTrilha) return true
+    if (chipKey.startsWith('enc:')) return c.subetapa_encaminhamento === chipKey.slice(4)
+    if (chipKey.startsWith('bat:')) return c.subetapa_batismo === chipKey.slice(4)
+    return false
+  }
+  return getChipKey(c, fase) === chipKey
+}
+
+// Busca por nome ou telefone (qualquer formatação), ignorando acentos.
+function normalizar(txt: string): string {
+  return txt.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+}
+
+function matchesBusca(c: Contact, busca: string): boolean {
+  const termo = normalizar(busca)
+  if (!termo) return true
+  if (normalizar(c.nome ?? '').includes(termo)) return true
+  const digitos = busca.replace(/\D/g, '')
+  if (digitos.length < 3) return false
+  const tel = (c.telefone ?? '').replace(/\D/g, '')
+  const semDdi = digitos.replace(/^55(?=\d{10,11}$)/, '')
+  return tel.includes(digitos) || tel.includes(semDdi)
 }
 
 const PER_PAGE = 30
@@ -73,6 +95,7 @@ export function PipelineLeadList({ fase, contacts, isLoading, volMap, volFiltro,
   const chips = CHIPS[fase] ?? []
   const [activeChip, setActiveChip] = useState<string | null>(DEFAULT_CHIP[fase] ?? null)
   const [page, setPage] = useState(1)
+  const [busca, setBusca] = useState('')
 
   const sorted = useMemo(() => {
     const ord: Record<string, number> = { over: 0, warn: 1, ok: 2 }
@@ -85,6 +108,7 @@ export function PipelineLeadList({ fase, contacts, isLoading, volMap, volFiltro,
       if (fase === 'POS_AULA') {
         if (c.subetapa_encaminhamento) { const k = `enc:${c.subetapa_encaminhamento}`; map[k] = (map[k] ?? 0) + 1 }
         if (c.subetapa_batismo)        { const k = `bat:${c.subetapa_batismo}`;        map[k] = (map[k] ?? 0) + 1 }
+        if (!c.subetapa_encaminhamento && !c.subetapa_batismo) { const k = DEFAULT_CHIP.POS_AULA!; map[k] = (map[k] ?? 0) + 1 }
       } else {
         const k = getChipKey(c, fase)
         if (k) map[k] = (map[k] ?? 0) + 1
@@ -93,10 +117,12 @@ export function PipelineLeadList({ fase, contacts, isLoading, volMap, volFiltro,
     return map
   }, [sorted, fase])
 
+  // Com busca ativa procura em todas as subetapas da fase, não só no chip selecionado.
   const filtered = useMemo(() => {
+    if (busca.trim()) return sorted.filter(c => matchesBusca(c, busca))
     if (!activeChip || fase === 'AULAS') return sorted
     return sorted.filter(c => matchesChip(c, activeChip, fase))
-  }, [sorted, activeChip, fase])
+  }, [sorted, activeChip, fase, busca])
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE)
   const paginated  = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
@@ -135,8 +161,27 @@ export function PipelineLeadList({ fase, contacts, isLoading, volMap, volFiltro,
         )}
       </div>
 
+      {/* Busca */}
+      <div className="px-3 py-2 border-b border-border flex-shrink-0">
+        <div className="relative">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            className="zion-input pl-8 pr-7 text-xs w-full"
+            placeholder="Buscar por nome ou telefone…"
+            value={busca}
+            onChange={e => { setBusca(e.target.value); setPage(1) }}
+          />
+          {busca && (
+            <button onClick={() => { setBusca(''); setPage(1) }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X size={12} />
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Chips */}
-      {chips.length > 0 && (
+      {chips.length > 0 && !busca.trim() && (
         <div className="flex gap-1.5 px-3 py-2 border-b border-border overflow-x-auto flex-shrink-0 scrollbar-none"
           style={{ WebkitOverflowScrolling: 'touch' }}>
           {chips.map(chip => {
@@ -167,7 +212,9 @@ export function PipelineLeadList({ fase, contacts, isLoading, volMap, volFiltro,
             <div className="w-6 h-6 border-2 border-menta-light border-t-transparent rounded-full animate-spin" />
           </div>
         ) : paginated.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">Nenhum lead nesta etapa.</p>
+          <p className="text-sm text-muted-foreground text-center py-8">
+            {busca.trim() ? 'Nenhum lead encontrado nesta etapa.' : 'Nenhum lead nesta etapa.'}
+          </p>
         ) : paginated.map(c => (
           <CardLeadLista
             key={c.id}

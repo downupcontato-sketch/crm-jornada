@@ -61,9 +61,17 @@ function applySubetapaFilter(
   q: any, fase: FasePipeline, sub: string | null,
 ) {
   if (!sub) return q
-  if (fase === 'CONTATO_INICIAL') return (q as any).eq('subetapa_contato', sub)
-  if (fase === 'QUALIFICACAO')    return (q as any).eq('subetapa_qualificacao', sub)
+  // No chip padrão entram também os leads sem subetapa preenchida — senão eles
+  // ficam fora de todos os chips e o voluntário nunca os encontra.
+  const isDefault = DEFAULT_CHIP[fase] === sub
+  if (fase === 'CONTATO_INICIAL' || fase === 'QUALIFICACAO') {
+    const col = fase === 'CONTATO_INICIAL' ? 'subetapa_contato' : 'subetapa_qualificacao'
+    return isDefault ? (q as any).or(`${col}.eq.${sub},${col}.is.null`) : (q as any).eq(col, sub)
+  }
   if (fase === 'POS_AULA') {
+    if (isDefault) {
+      return (q as any).or(`subetapa_encaminhamento.eq.${sub.slice(4)},and(subetapa_encaminhamento.is.null,subetapa_batismo.is.null)`)
+    }
     if (sub.startsWith('enc:')) return (q as any).eq('subetapa_encaminhamento', sub.slice(4))
     if (sub.startsWith('bat:')) return (q as any).eq('subetapa_batismo', sub.slice(4))
   }
@@ -134,8 +142,9 @@ export function PipelineVoluntario() {
       if (fase === 'POS_AULA') {
         if (m.subetapa_encaminhamento) c[`enc:${m.subetapa_encaminhamento}`] = (c[`enc:${m.subetapa_encaminhamento}`] ?? 0) + 1
         if (m.subetapa_batismo)        c[`bat:${m.subetapa_batismo}`]        = (c[`bat:${m.subetapa_batismo}`]        ?? 0) + 1
+        if (!m.subetapa_encaminhamento && !m.subetapa_batismo) c[DEFAULT_CHIP.POS_AULA!] = (c[DEFAULT_CHIP.POS_AULA!] ?? 0) + 1
       } else {
-        const sub = m.subetapa_contato ?? m.subetapa_qualificacao ?? '_'
+        const sub = m.subetapa_contato ?? m.subetapa_qualificacao ?? DEFAULT_CHIP[fase] ?? '_'
         c[sub] = (c[sub] ?? 0) + 1
       }
     }
