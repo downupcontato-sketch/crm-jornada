@@ -14,7 +14,7 @@ export default function Dashboard() {
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
       const { data: all } = await supabase.from('contacts')
-        .select('id,tipo,grupo,status,fase_pipeline,data_distribuicao,data_primeiro_contato,created_at')
+        .select('id,tipo,grupo,status,fase_pipeline,data_distribuicao,data_primeiro_contato,voluntario_atribuido_id,created_at')
         .not('status', 'in', '("inativo","arquivado","encaminhado")')
       const contacts = all ?? []
       const ativos = contacts.filter(c => c.status === 'ativo')
@@ -24,7 +24,7 @@ export default function Dashboard() {
       const contatoInicial = ativos.filter(c => c.fase_pipeline === 'CONTATO_INICIAL')
       const pendentes     = contatoInicial.filter(c => !c.data_primeiro_contato && c.data_distribuicao && (agora - new Date(c.data_distribuicao).getTime()) <= 48*3600000)
       const foraSLA       = contatoInicial.filter(c => !c.data_primeiro_contato && c.data_distribuicao && (agora - new Date(c.data_distribuicao).getTime()) > 48*3600000)
-      const semVoluntario = ativos.filter(c => !(c as any).voluntario_atribuido_id)
+      const semVoluntario = ativos.filter(c => !c.voluntario_atribuido_id)
       // SLA % histórico (primeiro contato dentro de 48h)
       const comDist = contacts.filter(c => c.data_distribuicao && c.data_primeiro_contato)
       const slaOk = comDist.filter(c => new Date(c.data_primeiro_contato!).getTime() - new Date(c.data_distribuicao!).getTime() <= 48*3600000)
