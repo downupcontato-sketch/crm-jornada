@@ -175,7 +175,7 @@ export default function Usuarios() {
   ]
 
   return (
-    <Layout title="Gestão de Acessos">
+    <Layout title="Usuários">
       <div className="flex gap-1 mb-6 border-b border-border">
         {tabs.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}

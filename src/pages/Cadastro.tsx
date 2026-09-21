@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { verificarDuplicata, distribuirLead, mesclarLeads, type ResultadoDedup } from '@/lib/distribuicao'
 import { ModalDuplicata } from '@/components/contacts/ModalDuplicata'
+import { Layout } from '@/components/layout/Layout'
 import { toast } from 'sonner'
 import { DEFAULT_CHURCH_ID } from '@/lib/constants/church'
 import { PhoneInputInternacional, validatePhone } from '@/components/ui/PhoneInputInternacional'
@@ -179,8 +180,8 @@ export default function Cadastro() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-petroleo flex items-center justify-center px-4">
-        <div className="text-center animate-fade-in">
+      <Layout>
+        <div className="flex flex-col items-center justify-center text-center animate-fade-in py-24">
           <div className="w-20 h-20 rounded-full bg-menta-light/20 flex items-center justify-center mx-auto mb-4">
             <CheckCircle size={40} className="text-menta-light" />
           </div>
@@ -188,13 +189,13 @@ export default function Cadastro() {
           <p className="text-muted-foreground">O contato foi registrado e distribuído.</p>
           <p className="text-sm text-muted-foreground mt-1">Próximo formulário em instantes...</p>
         </div>
-      </div>
+      </Layout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-petroleo px-4 py-8 pb-16">
-      <div className="max-w-lg mx-auto">
+    <Layout>
+      <div className="max-w-lg mx-auto pb-8">
         {/* Header */}
         <div className="text-center mb-8">
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-menta-light to-menta-dark flex items-center justify-center mx-auto mb-3">
@@ -350,6 +351,6 @@ export default function Cadastro() {
           onCancelar={() => { setDuplicata(null); setPendingFormData(null) }}
         />
       )}
-    </div>
+    </Layout>
   )
 }

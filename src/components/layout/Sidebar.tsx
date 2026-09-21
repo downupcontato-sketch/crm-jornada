@@ -1,13 +1,23 @@
 import { NavLink } from 'react-router-dom'
 import { LayoutDashboard, Users, GitMerge, UserPlus, Settings, LogOut, Menu, X, Upload, ListFilter, BarChart2, TrendingUp } from 'lucide-react'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useBadges } from '@/hooks/useBadges'
 import { cn } from '@/lib/utils'
 import { NotificacoesDropdown } from './NotificacoesDropdown'
 
-const navItems = [
-  { to: '/dashboard',           icon: <LayoutDashboard size={20} />, label: 'Dashboard',      roles: ['admin', 'lider'] },
+interface NavItem {
+  to: string
+  icon: ReactNode
+  label: string
+  roles: string[]
+  /** Marca o item só quando a rota bate exatamente (evita dois itens acesos). */
+  end?: boolean
+}
+
+const navItems: NavItem[] = [
+  // `end`: sem isto /dashboard também acende em /dashboard/entrada e /dashboard/coordenador.
+  { to: '/dashboard',           icon: <LayoutDashboard size={20} />, label: 'Dashboard',      roles: ['admin', 'lider'], end: true },
   { to: '/dashboard/coordenador', icon: <LayoutDashboard size={20} />, label: 'Dashboard',    roles: ['coordenador'] },
   { to: '/pipeline',            icon: <GitMerge size={20} />,        label: 'Pipeline',       roles: ['admin', 'lider', 'coordenador', 'linha_de_frente'] },
   { to: '/meus-contatos',       icon: <Users size={20} />,           label: 'Meus Contatos',  roles: ['voluntario'] },
@@ -60,7 +70,7 @@ export function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
         {visible.map(item => (
-          <NavLink key={item.to} to={item.to} onClick={() => setOpen(false)}
+          <NavLink key={item.to} to={item.to} end={item.end} onClick={() => setOpen(false)}
             className={({ isActive }) => cn(
               'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
               isActive ? 'bg-menta-light/15 text-menta-light' : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
