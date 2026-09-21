@@ -121,7 +121,10 @@ export function DrawerEdicaoLead({ contact, onClose, onSaved }: Props) {
       status: data.status as ContactStatus,
       grupo: data.grupo as ContactGrupo,
       voluntario_atribuido_id: data.voluntario_atribuido_id ?? null,
-      ...(mudouVoluntario ? { atribuido_por_coordenador: true } : {}),
+      // Trocar de voluntário reinicia o prazo: o SLA é do novo responsável.
+      ...(mudouVoluntario
+        ? { atribuido_por_coordenador: true, data_distribuicao: new Date().toISOString() }
+        : {}),
       observacoes: data.observacoes || null,
     }
     const { error } = await supabase.from('contacts').update(payload).eq('id', contact.id)

@@ -152,7 +152,13 @@ export default function GestaoLeads() {
   async function bulkReatribuir() {
     if (!bulkVoluntario) return
     const ids = Array.from(selecionados)
-    const { error } = await supabase.from('contacts').update({ voluntario_atribuido_id: bulkVoluntario, atribuido_por_coordenador: true }).in('id', ids)
+    // data_distribuicao é o marco zero do SLA de 48h. Sem ela, o lead fica
+    // atribuído e permanentemente fora do indicador.
+    const { error } = await supabase.from('contacts').update({
+      voluntario_atribuido_id: bulkVoluntario,
+      atribuido_por_coordenador: true,
+      data_distribuicao: new Date().toISOString(),
+    }).in('id', ids)
     if (error) { toast.error('Erro ao reatribuir.'); return }
     // Registra atribuições
     await supabase.from('atribuicoes').insert(ids.map(contact_id => ({
