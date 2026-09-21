@@ -71,7 +71,7 @@ interface EntradaDados {
   porGrupo: { grupo: ContactGrupo; count: number }[]
   porLocal: { local: string; count: number }[]
   porFaixa: { faixa: string; count: number }[]
-  tendenciaSemanal: { semana: string; total: number }[]
+  tendenciaSemanal: { inicio: string; semana: string; total: number }[]
   porIgrejaOrigem: { nome: string; count: number }[]
   porSexo: { sexo: string; count: number }[]
   matrizTipoLocal: MatrizRow[]
@@ -144,16 +144,26 @@ export default function DashboardEntrada() {
     cs.forEach(c => { const f = classifyFaixa(c.idade as number | null); if (f) faixaMap.set(f, (faixaMap.get(f) ?? 0) + 1) })
     const porFaixa = FAIXAS.map(faixa => ({ faixa, count: faixaMap.get(faixa) ?? 0 }))
 
-    // Tendência semanal
+    // Tendência semanal — a chave é a data da segunda-feira (YYYY-MM-DD) para que a
+    // ordenação seja cronológica; o rótulo DD/MM ordenado como texto colocava
+    // setembro antes de agosto.
     const semanaMap = new Map<string, number>()
     cs.forEach(c => {
       const d = new Date(c.created_at)
       const monday = new Date(d)
-      monday.setDate(d.getDate() - d.getDay() + 1)
-      const label = `${String(monday.getDate()).padStart(2, '0')}/${String(monday.getMonth() + 1).padStart(2, '0')}`
-      semanaMap.set(label, (semanaMap.get(label) ?? 0) + 1)
+      // getDay() devolve 0 no domingo; sem este ajuste o domingo cairia na
+      // segunda-feira da semana seguinte — e domingo é o maior dia de entrada.
+      monday.setDate(d.getDate() - ((d.getDay() + 6) % 7))
+      monday.setHours(0, 0, 0, 0)
+      const chave = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`
+      semanaMap.set(chave, (semanaMap.get(chave) ?? 0) + 1)
     })
-    const tendenciaSemanal = [...semanaMap.entries()].map(([semana, total]) => ({ semana, total })).sort((a, b) => a.semana.localeCompare(b.semana))
+    const tendenciaSemanal = [...semanaMap.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([inicio, total]) => {
+        const [, mes, dia] = inicio.split('-')
+        return { inicio, semana: `${dia}/${mes}`, total }
+      })
 
     // Por igreja de origem
     const igrejaMap = new Map<string, number>()
@@ -355,7 +365,7 @@ export default function DashboardEntrada() {
                 {dados.tendenciaSemanal.map(s => {
                   const h = Math.max((s.total / maxSemana) * 96, 4)
                   return (
-                    <div key={s.semana} className="flex-1 flex flex-col items-center gap-1">
+                    <div key={s.inicio} className="flex-1 flex flex-col items-center gap-1">
                       <span className="text-xs font-medium text-offwhite">{s.total}</span>
                       <div className="w-full rounded-t-md bg-menta-light" style={{ height: h }} />
                       <span className="text-[10px] text-muted-foreground">{s.semana}</span>
