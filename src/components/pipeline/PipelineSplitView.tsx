@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { cn, getGrupoLabel } from '@/lib/utils'
 import { FASE_LABELS } from '@/lib/pipeline'
 import { SLUG_FASE, FASE_SLUG } from '@/lib/pipelineRoutes'
+import { buscarTodos } from '@/lib/queries/buscarTodos'
 import { PipelineLeadList } from './PipelineLeadList'
 import { PipelineLeadDetail } from './PipelineLeadDetail'
 import type { Contact, ContactGrupo, FasePipeline } from '@/types/database'
@@ -29,15 +30,17 @@ export function PipelineSplitView() {
     queryKey: ['pipeline-split', fase, grupoFiltro],
     queryFn: async () => {
       if (!fase) return []
-      let q = supabase.from('contacts').select('*')
-        .eq('fase_pipeline', fase)
-        .eq('status', 'ativo')
-        .order('updated_at', { ascending: true })
-      if (grupoFiltro !== 'todos') q = q.eq('grupo', grupoFiltro)
-      else if (!canSeeAllContacts && profile?.grupo) q = q.eq('grupo', profile.grupo)
-      const { data, error } = await q
-      if (error) throw error
-      return data as Contact[]
+      return buscarTodos<Contact>((de, ate) => {
+        let q = supabase.from('contacts').select('*')
+          .eq('fase_pipeline', fase)
+          .eq('status', 'ativo')
+          .order('updated_at', { ascending: true })
+          .order('id', { ascending: true })
+          .range(de, ate)
+        if (grupoFiltro !== 'todos') q = q.eq('grupo', grupoFiltro)
+        else if (!canSeeAllContacts && profile?.grupo) q = q.eq('grupo', profile.grupo)
+        return q
+      })
     },
     enabled: !!fase,
   })

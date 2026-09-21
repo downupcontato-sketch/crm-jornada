@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { cn, getGrupoLabel } from '@/lib/utils'
 import { calcularSLAFase, FASE_LABELS } from '@/lib/pipeline'
 import { COORDINATOR_CONTACT_FILTER } from '@/lib/queries/filters'
+import { buscarTodos } from '@/lib/queries/buscarTodos'
 import { FASE_SLUG } from '@/lib/pipelineRoutes'
 import { CardFaseExecutivo } from './CardFaseExecutivo'
 import type { Contact, ContactGrupo, FasePipeline } from '@/types/database'
@@ -23,19 +24,19 @@ export function PipelineExecutivo() {
 
   const { data: contacts = [], isLoading, error } = useQuery({
     queryKey: ['pipeline-exec', grupoFiltro, mostrarInativos, canSeeAllContacts],
-    queryFn: async () => {
+    queryFn: () => buscarTodos<Contact>((de, ate) => {
       let q = supabase.from('contacts').select('*')
         .in('fase_pipeline', FASES_ATIVAS)
         .in('status', mostrarInativos ? ['ativo', 'inativo'] : ['ativo'])
         .order('updated_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(de, ate)
       if (grupoFiltro !== 'todos') q = q.eq('grupo', grupoFiltro)
       else if (!canSeeAllContacts && profile?.grupo) q = q.eq('grupo', profile.grupo)
       // Coordenadores veem apenas contatos formalmente distribuídos (mesma regra do DashboardCoordenador)
       if (!canSeeAllContacts) q = q.eq('atribuido_por_coordenador', COORDINATOR_CONTACT_FILTER.atribuido_por_coordenador)
-      const { data, error } = await q
-      if (error) throw error
-      return data as Contact[]
-    },
+      return q
+    }),
   })
 
   const { data: volMap = {} } = useQuery({

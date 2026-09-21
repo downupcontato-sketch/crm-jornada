@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
 import { calcularSLAFase, FASE_LABELS } from '@/lib/pipeline'
+import { buscarTodos } from '@/lib/queries/buscarTodos'
 import { DrillDownPanel } from './DrillDownPanel'
 import { DrawerLead } from './DrawerLead'
 import type { Contact, FasePipeline, Profile } from '@/types/database'
@@ -28,16 +29,16 @@ export function PipelineLider() {
 
   const { data: contacts = [], isLoading: loadingContacts, error } = useQuery({
     queryKey: ['pipeline-lider-contacts', profile?.grupo],
-    queryFn: async () => {
+    queryFn: () => buscarTodos<Contact>((de, ate) => {
       let q = supabase.from('contacts').select('*')
         .in('fase_pipeline', FASES_ATIVAS)
         .order('updated_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(de, ate)
       if (!canSeeAllContacts && profile?.grupo) q = q.eq('grupo', profile.grupo)
       else if (profile?.grupo) q = q.eq('grupo', profile.grupo)
-      const { data, error } = await q
-      if (error) throw error
-      return data as Contact[]
-    },
+      return q
+    }),
   })
 
   const { data: voluntarios = [], isLoading: loadingVols } = useQuery({

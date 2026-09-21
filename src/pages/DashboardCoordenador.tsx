@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
 import { calcularSLAFase, formatarSLALabel } from '@/lib/pipeline'
 import { COORDINATOR_CONTACT_FILTER } from '@/lib/queries/filters'
+import { buscarTodos } from '@/lib/queries/buscarTodos'
 import type { Contact } from '@/types/database'
 
 export default function DashboardCoordenador() {
@@ -18,15 +19,17 @@ export default function DashboardCoordenador() {
     queryKey: ['coordenador-contacts', grupo],
     queryFn: async () => {
       if (!grupo) return []
-      const { data, error } = await supabase
-        .from('contacts')
-        .select('id,nome,telefone,status,sla_status,voluntario_atribuido_id,fase_pipeline,data_distribuicao,data_primeiro_contato')
-        .eq('grupo', grupo)
-        .eq('status', 'ativo')
-        .eq('atribuido_por_coordenador', COORDINATOR_CONTACT_FILTER.atribuido_por_coordenador)
-        .in('fase_pipeline', ['CONTATO_INICIAL', 'QUALIFICACAO', 'AULAS', 'POS_AULA'])
-      if (error) throw error
-      return (data ?? []) as Pick<Contact, 'id'|'nome'|'telefone'|'status'|'sla_status'|'voluntario_atribuido_id'|'fase_pipeline'|'data_distribuicao'|'data_primeiro_contato'>[]
+      return buscarTodos<Pick<Contact, 'id'|'nome'|'telefone'|'status'|'sla_status'|'voluntario_atribuido_id'|'fase_pipeline'|'data_distribuicao'|'data_primeiro_contato'>>((de, ate) =>
+        supabase
+          .from('contacts')
+          .select('id,nome,telefone,status,sla_status,voluntario_atribuido_id,fase_pipeline,data_distribuicao,data_primeiro_contato')
+          .eq('grupo', grupo)
+          .eq('status', 'ativo')
+          .eq('atribuido_por_coordenador', COORDINATOR_CONTACT_FILTER.atribuido_por_coordenador)
+          .in('fase_pipeline', ['CONTATO_INICIAL', 'QUALIFICACAO', 'AULAS', 'POS_AULA'])
+          .order('id', { ascending: true })
+          .range(de, ate)
+      )
     },
     enabled: !!grupo,
     refetchInterval: 60000,
