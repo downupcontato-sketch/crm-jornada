@@ -538,7 +538,7 @@ export default function Relatorios() {
           if (cel) cel.l = { Target: l.wa, Tooltip: 'Abrir conversa no WhatsApp' }
         }
         const celCrm = ws[`J${linha}`]
-        if (celCrm) celCrm.l = { Target: l.crm, Tooltip: 'Abrir o lead na plataforma' }
+        if (celCrm) celCrm.l = { Target: l.crm, Tooltip: 'Abrir a vida na plataforma' }
       })
 
       ws['!cols'] = [

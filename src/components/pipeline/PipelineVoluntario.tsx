@@ -300,7 +300,7 @@ export function PipelineVoluntario() {
           <div className="w-8 h-8 border-2 border-menta-light border-t-transparent rounded-full animate-spin" />
         </div>
       ) : contacts.length === 0 ? (
-        <div className="text-center py-16 text-muted-foreground text-sm">Nenhum lead nesta etapa.</div>
+        <div className="text-center py-16 text-muted-foreground text-sm">Nenhuma vida nesta etapa.</div>
       ) : fase === 'AULAS' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {contacts.map(c => (

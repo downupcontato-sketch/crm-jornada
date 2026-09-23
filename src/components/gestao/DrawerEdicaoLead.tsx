@@ -135,12 +135,12 @@ export function DrawerEdicaoLead({ contact, onClose, onSaved }: Props) {
         contact_id: contact.id,
         voluntario_id: data.voluntario_atribuido_id,
         tipo: 'MANUAL',
-        motivo: 'Reatribuição via gestão de leads',
+        motivo: 'Reatribuição via gestão de vidas',
         criado_por: profile?.id ?? null,
       })
     }
 
-    toast.success('Lead atualizado com sucesso')
+    toast.success('Vida atualizada com sucesso')
     onSaved(payload)
     onClose()
   }

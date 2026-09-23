@@ -171,7 +171,7 @@ export function PipelineSplitView() {
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
               <Columns2 size={32} className="opacity-20" />
-              <p className="text-sm">Selecione um lead na lista</p>
+              <p className="text-sm">Selecione uma vida na lista</p>
             </div>
           )}
         </div>

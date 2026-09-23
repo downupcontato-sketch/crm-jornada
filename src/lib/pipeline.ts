@@ -342,7 +342,7 @@ export async function registrarPerda(
   await supabase.from('lead_historico').insert({
     contact_id: c.id, user_id: userId,
     tipo: definitiva ? 'PERDA' : 'REENCAMINHAMENTO',
-    descricao: `${definitiva ? 'Lead perdido' : 'Reencaminhado'}: ${motivo}${observacao ? ` — ${observacao}` : ''}`,
+    descricao: `${definitiva ? 'Vida perdida' : 'Reencaminhado'}: ${motivo}${observacao ? ` — ${observacao}` : ''}`,
   })
 }
 

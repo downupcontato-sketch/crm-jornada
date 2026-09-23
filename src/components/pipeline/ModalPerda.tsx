@@ -105,7 +105,7 @@ export function ModalPerda({ contact, onClose, onSaved }: Props) {
       try {
         if (motivo === 'INDICADO_BATISMO') {
           await redirecionarParaBatismo(contact, profile.id)
-          toast.success('Lead redirecionado para o pipeline de Batismo')
+          toast.success('Vida redirecionada para o pipeline de Batismo')
         } else {
           await registrarPerda(contact, motivo as MotivoPerdaLead, observacao || null, profile.id)
           toast.success('Desqualificação registrada')
@@ -228,8 +228,8 @@ export function ModalPerda({ contact, onClose, onSaved }: Props) {
                 : 'bg-red-400/5 border-red-400/20 text-red-400',
             )}>
               {isRedirecionamento
-                ? 'Este lead não será perdido — será redirecionado para o pipeline de Batismo.'
-                : 'Este lead será marcado como desqualificado e sairá do funil ativo.'}
+                ? 'Esta vida não será perdida — será redirecionada para o pipeline de Batismo.'
+                : 'Esta vida será marcada como desqualificada e sairá do funil ativo.'}
             </div>
           )}
 
@@ -294,7 +294,7 @@ export function ModalPerda({ contact, onClose, onSaved }: Props) {
     setLoading(true)
     try {
       await registrarPerda(contact, motivo as MotivoPerdaLead, observacao || null, profile.id)
-      toast.success(reencaminha ? 'Lead reencaminhado' : 'Perda registrada')
+      toast.success(reencaminha ? 'Vida reencaminhada' : 'Perda registrada')
       onSaved()
     } catch {
       toast.error('Erro ao registrar perda')
@@ -326,7 +326,7 @@ export function ModalPerda({ contact, onClose, onSaved }: Props) {
         {/* Chip contextual */}
         <div className="mb-4">
           <span className="text-[10px] font-medium bg-muted/30 border border-border text-muted-foreground px-2.5 py-1 rounded-full">
-            Lead em <strong className="text-offwhite">{chipLabel}</strong> — exibindo motivos relevantes para esta etapa
+            Vida em <strong className="text-offwhite">{chipLabel}</strong> — exibindo motivos relevantes para esta etapa
           </span>
         </div>
 
@@ -368,7 +368,7 @@ export function ModalPerda({ contact, onClose, onSaved }: Props) {
         {/* Aviso reencaminhamento */}
         {reencaminha && (
           <div className="bg-yellow-400/5 border border-yellow-400/20 rounded-lg px-3 py-2 mb-4">
-            <p className="text-xs text-yellow-400">⚠ Este lead será <strong>reencaminhado</strong>, não perdido definitivamente — voltará à lista de espera do batismo.</p>
+            <p className="text-xs text-yellow-400">⚠ Esta vida será <strong>reencaminhado</strong>, não perdido definitivamente — voltará à lista de espera do batismo.</p>
           </div>
         )}
 

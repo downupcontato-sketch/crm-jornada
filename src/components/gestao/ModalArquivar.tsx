@@ -27,7 +27,7 @@ export function ModalArquivar({ nomes, onConfirmar, onCancelar }: Props) {
               <AlertTriangle size={18} className="text-red-400" />
             </div>
             <h2 className="text-base font-semibold text-offwhite">
-              {bulk ? `Arquivar ${nomes.length} leads` : 'Arquivar lead'}
+              {bulk ? `Arquivar ${nomes.length} vidas` : 'Arquivar vida'}
             </h2>
           </div>
           <button onClick={onCancelar} className="text-muted-foreground hover:text-foreground"><X size={18}/></button>
@@ -40,12 +40,12 @@ export function ModalArquivar({ nomes, onConfirmar, onCancelar }: Props) {
         )}
         {bulk && (
           <p className="text-sm text-muted-foreground mb-4">
-            Você está arquivando <strong className="text-offwhite">{nomes.length} leads</strong>: {nomes.slice(0,3).join(', ')}{nomes.length > 3 ? ` e +${nomes.length - 3}` : ''}.
+            Você está arquivando <strong className="text-offwhite">{nomes.length} vidas</strong>: {nomes.slice(0,3).join(', ')}{nomes.length > 3 ? ` e +${nomes.length - 3}` : ''}.
           </p>
         )}
 
         <div className="bg-yellow-400/5 border border-yellow-400/20 rounded-lg px-3 py-2 mb-4">
-          <p className="text-xs text-yellow-400">O lead não será deletado. Poderá ser recuperado depois alterando o status.</p>
+          <p className="text-xs text-yellow-400">A vida não será deletada. Poderá ser recuperada depois alterando o status.</p>
         </div>
 
         <div className="mb-5">
@@ -67,7 +67,7 @@ export function ModalArquivar({ nomes, onConfirmar, onCancelar }: Props) {
             disabled={carregando}
             className="flex-1 text-sm px-4 py-2.5 rounded-lg font-medium bg-red-500/15 text-red-400 border border-red-500/30 hover:bg-red-500/25 transition-all disabled:opacity-50"
           >
-            {carregando ? 'Arquivando…' : bulk ? `Arquivar ${nomes.length} leads` : 'Arquivar lead'}
+            {carregando ? 'Arquivando…' : bulk ? `Arquivar ${nomes.length} vidas` : 'Arquivar vida'}
           </button>
         </div>
       </div>

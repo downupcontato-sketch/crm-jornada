@@ -137,7 +137,7 @@ export default function GestaoLeads() {
   async function arquivar(ids: string[], motivo: string) {
     const { error } = await supabase.from('contacts').update({ status: 'arquivado' as ContactStatus }).in('id', ids)
     if (error) { toast.error('Erro ao arquivar.'); return }
-    toast.success(ids.length === 1 ? 'Lead arquivado.' : `${ids.length} leads arquivados.`)
+    toast.success(ids.length === 1 ? 'Vida arquivada.' : `${ids.length} vidas arquivadas.`)
     setSelecionados(new Set())
     setLeadArquivando(null)
     qc.invalidateQueries({ queryKey: ['gestao-leads'] })
@@ -163,9 +163,9 @@ export default function GestaoLeads() {
     // Registra atribuições
     await supabase.from('atribuicoes').insert(ids.map(contact_id => ({
       contact_id, voluntario_id: bulkVoluntario, tipo: 'MANUAL',
-      motivo: 'Reatribuição em massa via gestão de leads', criado_por: profile?.id ?? null,
+      motivo: 'Reatribuição em massa via gestão de vidas', criado_por: profile?.id ?? null,
     })))
-    toast.success(`${ids.length} leads reatribuídos.`)
+    toast.success(`${ids.length} vidas reatribuídas.`)
     setSelecionados(new Set()); setBulkVoluntario(''); setShowBulkVol(false)
     qc.invalidateQueries({ queryKey: ['gestao-leads'] })
   }
@@ -175,7 +175,7 @@ export default function GestaoLeads() {
     const ids = Array.from(selecionados)
     const { error } = await supabase.from('contacts').update({ status: bulkStatus as ContactStatus }).in('id', ids)
     if (error) { toast.error('Erro ao alterar status.'); return }
-    toast.success(`${ids.length} leads atualizados.`)
+    toast.success(`${ids.length} vidas atualizadas.`)
     setSelecionados(new Set()); setBulkStatus(''); setShowBulkStatus(false)
     qc.invalidateQueries({ queryKey: ['gestao-leads'] })
   }
@@ -265,7 +265,7 @@ export default function GestaoLeads() {
 
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
-    <Layout title="Gestão de Leads">
+    <Layout title="Gestão de Vidas">
 
       {/* Tabs */}
       <div className="flex gap-2 mb-5">
@@ -433,7 +433,7 @@ export default function GestaoLeads() {
 
       {/* Contador + chip de filtro por voluntário */}
       <div className="flex items-center justify-between mb-2">
-        <p className="text-xs text-muted-foreground">{total} leads encontrados</p>
+        <p className="text-xs text-muted-foreground">{total} vidas encontradas</p>
         {filtros.voluntario && (
           <button
             onClick={() => setFiltros(f => ({ ...f, voluntario: '', page: 1 }))}
@@ -448,7 +448,7 @@ export default function GestaoLeads() {
       {isLoading ? (
         <div className="flex items-center justify-center h-48"><div className="w-8 h-8 border-2 border-menta-light border-t-transparent rounded-full animate-spin"/></div>
       ) : leads.length === 0 ? (
-        <div className="zion-card text-center py-12 text-muted-foreground text-sm">Nenhum lead encontrado.</div>
+        <div className="zion-card text-center py-12 text-muted-foreground text-sm">Nenhuma vida encontrada.</div>
       ) : (
         <div className="zion-card p-0 overflow-hidden">
           <div className="overflow-x-auto">

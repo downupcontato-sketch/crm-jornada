@@ -80,11 +80,11 @@ export default function Cadastro() {
       if (contact?.id) {
         const dist = await distribuirLead(contact.id)
         if (dist.tipo === 'AUTOMATICA') {
-          toast.success('Lead distribuído automaticamente para um voluntário.')
+          toast.success('Vida distribuída automaticamente para um voluntário.')
         } else if (dist.tipo === 'DESLIGADA') {
           toast.info('Cadastro salvo. Atribua um voluntário em Minha Equipe.')
         } else if (dist.tipo === 'FILA') {
-          toast.info('Todos os voluntários estão no limite. Lead adicionado à fila de espera.')
+          toast.info('Todos os voluntários estão no limite. Vida adicionada à fila de espera.')
         }
       }
 

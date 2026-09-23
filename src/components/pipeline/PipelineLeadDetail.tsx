@@ -314,7 +314,7 @@ export function PipelineLeadDetail({ contact: initial, onUpdated, onFullPage, vo
             <textarea
               value={obs}
               onChange={e => setObs(e.target.value)}
-              placeholder="Adicionar observação sobre este lead..."
+              placeholder="Adicionar observação sobre esta vida..."
               rows={3}
               className="w-full bg-muted/20 border border-border rounded-xl px-3 py-2.5 text-sm text-offwhite placeholder:text-muted-foreground/40 resize-none focus:outline-none focus:border-menta-light/40 transition-colors"
             />

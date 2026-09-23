@@ -277,7 +277,7 @@ export default function MeusContatos() {
                   <div className="space-y-2 min-h-[120px]">
                     {leads.length === 0 ? (
                       <div className="rounded-xl border border-dashed border-border/40 h-20 flex items-center justify-center">
-                        <p className="text-[10px] text-muted-foreground/50">Nenhum lead</p>
+                        <p className="text-[10px] text-muted-foreground/50">Nenhuma vida</p>
                       </div>
                     ) : leads.map(c => (
                       <KanbanCard key={c.id} contact={c} onClick={openDrawer} />

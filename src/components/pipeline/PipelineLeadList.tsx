@@ -150,7 +150,7 @@ export function PipelineLeadList({ fase, contacts, isLoading, volMap, volFiltro,
             </span>
           )}
         </div>
-        <p className="text-xs text-muted-foreground mt-0.5">{contacts.length} leads</p>
+        <p className="text-xs text-muted-foreground mt-0.5">{contacts.length} vidas</p>
         {volFiltro && volMap?.[volFiltro] && onClearVolFiltro && (
           <div className="flex items-center gap-1.5 mt-1.5">
             <span className="text-[10px] text-menta-light bg-menta-light/10 border border-menta-light/20 px-2 py-0.5 rounded-full">
@@ -213,7 +213,7 @@ export function PipelineLeadList({ fase, contacts, isLoading, volMap, volFiltro,
           </div>
         ) : paginated.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">
-            {busca.trim() ? 'Nenhum lead encontrado nesta etapa.' : 'Nenhum lead nesta etapa.'}
+            {busca.trim() ? 'Nenhuma vida encontrada nesta etapa.' : 'Nenhuma vida nesta etapa.'}
           </p>
         ) : paginated.map(c => (
           <CardLeadLista

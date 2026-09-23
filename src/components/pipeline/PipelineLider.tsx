@@ -248,7 +248,7 @@ export function PipelineLider() {
           </table>
 
           {voluntarios.length === 0 && !temSemAtrib && (
-            <p className="text-sm text-muted-foreground text-center py-8">Nenhum voluntário ou lead encontrado no seu grupo.</p>
+            <p className="text-sm text-muted-foreground text-center py-8">Nenhum voluntário ou vida no seu grupo.</p>
           )}
         </div>
       )}

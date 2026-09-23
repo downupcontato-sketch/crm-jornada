@@ -151,9 +151,9 @@ export default function DashboardCoordenador() {
           <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
           <span>
             <strong>{semConfirmacao.length}</strong> contato{semConfirmacao.length > 1 ? 's' : ''} com atribuição pendente de confirmação.{' '}
-            Esses leads vieram de importação e precisam ser revisados para que o voluntário possa vê-los.{' '}
+            Essas vidas vieram de importação e precisam ser revisadas para que o voluntário possa vê-las.{' '}
             <Link to="/gestao-leads" className="underline hover:text-yellow-300 transition-colors">
-              Revisar na Gestão de Leads →
+              Revisar na Gestão de Vidas →
             </Link>
           </span>
         </div>

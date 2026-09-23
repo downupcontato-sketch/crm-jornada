@@ -145,7 +145,7 @@ export function DrillDownPanel({ fase, contacts, onClose, onCard, volMap }: Prop
             </button>
           </div>
           <div className="flex items-center gap-2">
-            <p className="text-xs text-muted-foreground">{contacts.length} leads</p>
+            <p className="text-xs text-muted-foreground">{contacts.length} vidas</p>
             {urgentes > 0 && (
               <span className="text-[10px] text-red-400 font-medium">⚠ {urgentes} urgente{urgentes !== 1 ? 's' : ''}</span>
             )}
@@ -190,7 +190,7 @@ export function DrillDownPanel({ fase, contacts, onClose, onCard, volMap }: Prop
         {/* Lista */}
         <div className="flex-1 overflow-y-auto p-4">
           {paginated.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">Nenhum lead nesta etapa.</p>
+            <p className="text-sm text-muted-foreground text-center py-8">Nenhuma vida nesta etapa.</p>
           ) : (
             <div className="space-y-1.5">
               {paginated.map(c => (

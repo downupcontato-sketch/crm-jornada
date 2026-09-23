@@ -44,7 +44,7 @@ export function ModalPresenca({ contact, aula, onClose, onSaved }: Props) {
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X size={18}/></button>
         </div>
 
-        <p className="text-sm text-muted-foreground mb-5">O lead compareceu à aula?</p>
+        <p className="text-sm text-muted-foreground mb-5">A vida compareceu à aula?</p>
 
         <div className="flex gap-3">
           <button

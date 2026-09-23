@@ -148,7 +148,7 @@ export async function distribuirLead(contactId: string): Promise<ResultadoDistri
     return {
       sucesso: false,
       tipo: 'DESLIGADA',
-      mensagem: 'Distribuição automática desligada: atribua o lead em Minha Equipe.',
+      mensagem: 'Distribuição automática desligada: atribua a vida em Minha Equipe.',
     }
   }
 
@@ -161,7 +161,7 @@ export async function distribuirLead(contactId: string): Promise<ResultadoDistri
       sucesso: true,
       voluntarioId: resultado.voluntario_id,
       tipo: 'AUTOMATICA',
-      mensagem: 'Lead atribuído automaticamente.',
+      mensagem: 'Vida atribuída automaticamente.',
     }
   }
 
@@ -191,7 +191,7 @@ export async function distribuirLead(contactId: string): Promise<ResultadoDistri
   return {
     sucesso: false,
     tipo: 'FILA',
-    mensagem: resultado.motivo ?? 'Lead adicionado à fila de espera.',
+    mensagem: resultado.motivo ?? 'Vida adicionada à fila de espera.',
   }
 }
 

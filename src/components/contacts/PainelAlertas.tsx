@@ -123,7 +123,7 @@ export function PainelAlertas() {
     if (error) {
       toast.error('Erro ao redistribuir: ' + error)
     } else {
-      toast.success('Lead redistribuído!')
+      toast.success('Vida redistribuída!')
       setRedistribuindo(null)
       queryClient.invalidateQueries({ queryKey: ['alertas-sla'] })
       queryClient.invalidateQueries({ queryKey: ['pipeline'] })
