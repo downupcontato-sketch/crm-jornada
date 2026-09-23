@@ -211,6 +211,7 @@ export default function FormularioPublico() {
           const dist = await distribuirLead(novoId)
           setAvisoDistribuicao(
             dist.tipo === 'AUTOMATICA' ? 'Lead distribuído automaticamente para um voluntário.'
+            : dist.tipo === 'DESLIGADA' ? 'Cadastro salvo. Atribua um voluntário em Minha Equipe.'
             : dist.tipo === 'FILA'     ? 'Todos os voluntários estão no limite. Lead na fila de espera.'
             : 'Cadastro salvo, mas a distribuição automática falhou. Atribua pela Gestão de Leads.'
           )

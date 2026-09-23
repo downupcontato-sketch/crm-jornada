@@ -22,7 +22,7 @@ export interface ResultadoDedup {
 export interface ResultadoDistribuicao {
   sucesso: boolean
   voluntarioId?: string
-  tipo: 'AUTOMATICA' | 'FILA' | 'ERRO'
+  tipo: 'AUTOMATICA' | 'FILA' | 'DESLIGADA' | 'ERRO'
   mensagem: string
 }
 
@@ -140,6 +140,16 @@ export async function distribuirLead(contactId: string): Promise<ResultadoDistri
 
   if (!resultado) {
     return { sucesso: false, tipo: 'ERRO', mensagem: 'Sem resposta da função de distribuição.' }
+  }
+
+  // Chave geral desligada: sai antes da lógica de fila, senão o bloco abaixo
+  // geraria alerta de FILA_CHEIA a cada cadastro.
+  if (resultado.tipo_atribuicao === 'DESLIGADA') {
+    return {
+      sucesso: false,
+      tipo: 'DESLIGADA',
+      mensagem: 'Distribuição automática desligada: atribua o lead em Minha Equipe.',
+    }
   }
 
   if (resultado.tipo_atribuicao === 'AUTOMATICA') {
