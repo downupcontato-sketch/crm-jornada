@@ -8,6 +8,8 @@ interface AuthContextValue {
   isAdmin: boolean; isLider: boolean; isCoordenador: boolean; isVoluntario: boolean; isLinhaDeFrente: boolean
   isPendente: boolean
   canSeeAllContacts: boolean; canManageUsers: boolean
+  /** Atribuir voluntário a uma vida. Liberado por perfil; admin sempre pode. */
+  podeDistribuir: boolean
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
@@ -57,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isPendente: profile?.status === 'pendente',
       canSeeAllContacts: nivel === 'admin' || nivel === 'lider',
       canManageUsers: nivel === 'admin',
+      podeDistribuir: nivel === 'admin' || profile?.pode_distribuir === true,
       signIn: async (email, password) => {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         return { error }

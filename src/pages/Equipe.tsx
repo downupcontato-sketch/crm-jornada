@@ -79,7 +79,7 @@ function LeadRow({ contact: c, onOpen }: { contact: any; onOpen: (c: any) => voi
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function Equipe() {
-  const { profile } = useAuth()
+  const { profile, podeDistribuir } = useAuth()
   const { setViewingAs } = useViewAs()
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -173,12 +173,14 @@ export default function Equipe() {
                       <p className="text-sm text-offwhite truncate">{c.nome}</p>
                       <p className="text-xs text-muted-foreground">{getGrupoLabel(c.grupo)}</p>
                     </div>
-                    <button
-                      onClick={() => setModalAtribuir(c)}
-                      className="text-xs bg-menta-dark/30 hover:bg-menta-dark/50 text-menta-light px-3 py-1.5 rounded-md transition-all whitespace-nowrap flex-shrink-0"
-                    >
-                      Atribuir →
-                    </button>
+                    {podeDistribuir && (
+                      <button
+                        onClick={() => setModalAtribuir(c)}
+                        className="text-xs bg-menta-dark/30 hover:bg-menta-dark/50 text-menta-light px-3 py-1.5 rounded-md transition-all whitespace-nowrap flex-shrink-0"
+                      >
+                        Atribuir →
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

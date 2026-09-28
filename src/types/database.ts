@@ -56,6 +56,8 @@ export interface Profile {
   rejeitado_em?: string | null
   nota_rejeicao?: string | null
   max_contatos_ativos: number
+  /** Pode atribuir voluntário a uma vida. Admin não depende deste campo. */
+  pode_distribuir?: boolean
   coordenador_id: string | null
   ultima_atribuicao: string | null
   especializacao: string[]

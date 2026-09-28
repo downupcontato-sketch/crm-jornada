@@ -57,7 +57,7 @@ const RESULTADO_INT: Record<string, string> = { respondeu: 'Respondeu', nao_aten
 const RESULTADO_COR: Record<string, string> = { respondeu: 'text-emerald-400', nao_atendeu: 'text-yellow-400', sem_resposta: 'text-red-400', avancou: 'text-menta-light', recusou: 'text-red-400' }
 
 export function DrawerEdicaoLead({ contact, onClose, onSaved }: Props) {
-  const { isAdmin, profile } = useAuth()
+  const { isAdmin, profile, podeDistribuir } = useAuth()
   const canChangeGrupo = isAdmin
   const navigate = useNavigate()
   const [aba, setAba] = useState<Aba>('dados')
@@ -264,7 +264,7 @@ export function DrawerEdicaoLead({ contact, onClose, onSaved }: Props) {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1">Voluntário</label>
-                  <select className="zion-input" {...register('voluntario_atribuido_id')}>
+                  <select className="zion-input" disabled={!podeDistribuir} {...register('voluntario_atribuido_id')}>
                     <option value="">— Sem atribuição —</option>
                     {voluntariosOrdenados.map(v => (
                       <option key={v.id} value={v.id}>

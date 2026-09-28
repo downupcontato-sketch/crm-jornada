@@ -53,7 +53,7 @@ const tipoConfig: Record<AlertaTipo, { label: string; color: string; icon: React
 }
 
 export function PainelAlertas() {
-  const { profile } = useAuth()
+  const { profile, podeDistribuir } = useAuth()
   const queryClient = useQueryClient()
   const [redistribuindo, setRedistribuindo] = useState<RedistribuirState | null>(null)
   const [resolvendoId, setResolvendoId] = useState<string | null>(null)
@@ -239,6 +239,7 @@ export function PainelAlertas() {
                     </div>
 
                     <div className="flex flex-col gap-1 flex-shrink-0">
+                      {podeDistribuir && (
                       <button
                         onClick={() => setRedistribuindo({
                           alertaId: alerta.id,
@@ -249,6 +250,7 @@ export function PainelAlertas() {
                         <RefreshCw size={11} />
                         Redistribuir
                       </button>
+                      )}
                       <button
                         onClick={() => handleResolver(alerta.id)}
                         disabled={resolvendoId === alerta.id}

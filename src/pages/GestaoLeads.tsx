@@ -60,7 +60,7 @@ function buscaFiltro(busca: string): string {
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function GestaoLeads() {
-  const { profile, isAdmin, isLider, canSeeAllContacts } = useAuth()
+  const { profile, isAdmin, isLider, canSeeAllContacts, podeDistribuir } = useAuth()
   const qc = useQueryClient()
 
   const [tab, setTab] = useState<'leads' | 'novos'>('leads')
@@ -202,6 +202,20 @@ export default function GestaoLeads() {
       return (data ?? []) as Contact[]
     },
     enabled: !!profile,
+  })
+
+  // A chave geral da distribuição: o texto do seletor de aprovação mente se
+  // disser "será distribuído automaticamente" com a distribuição desligada.
+  const { data: distribuicaoLigada = false } = useQuery({
+    queryKey: ['distribuicao-automatica'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('configuracoes')
+        .select('valor')
+        .eq('chave', 'distribuicao_automatica')
+        .maybeSingle()
+      return data?.valor ?? false
+    },
   })
 
   // Voluntários para seletor de aprovação
@@ -397,9 +411,11 @@ export default function GestaoLeads() {
               <button onClick={() => setShowBulkVol(false)} className="text-xs text-muted-foreground hover:text-foreground px-1">✕</button>
             </div>
           ) : (
-            <button onClick={() => { setShowBulkVol(true); setShowBulkStatus(false) }} className="text-xs text-muted-foreground hover:text-menta-light px-2 py-1 rounded-md border border-border hover:border-menta-light/40 transition-all">
-              <Users size={12} className="inline mr-1"/>Reatribuir
-            </button>
+            podeDistribuir && (
+              <button onClick={() => { setShowBulkVol(true); setShowBulkStatus(false) }} className="text-xs text-muted-foreground hover:text-menta-light px-2 py-1 rounded-md border border-border hover:border-menta-light/40 transition-all">
+                <Users size={12} className="inline mr-1"/>Reatribuir
+              </button>
+            )
           )}
 
           {/* Alterar status */}
@@ -613,19 +629,30 @@ export default function GestaoLeads() {
               <label className="text-xs font-medium text-muted-foreground">Voluntário responsável</label>
               <select
                 className="zion-input text-sm"
+                disabled={!podeDistribuir}
                 value={modalAprovacao.voluntarioId}
                 onChange={e => setModalAprovacao(m => m ? { ...m, voluntarioId: e.target.value } : null)}
               >
-                <option value="">Distribuição automática</option>
-                {voluntariosAprovacao
-                  .filter(v => !modalAprovacao.contact.grupo || v.grupo === modalAprovacao.contact.grupo)
+                <option value="">
+                  {distribuicaoLigada ? 'Distribuição automática' : 'Deixar sem voluntário'}
+                </option>
+                {[...voluntariosAprovacao]
+                  .sort((a, b) => {
+                    const g = modalAprovacao.contact.grupo
+                    return (a.grupo === g ? 0 : 1) - (b.grupo === g ? 0 : 1)
+                      || a.nome.localeCompare(b.nome)
+                  })
                   .map(v => (
                     <option key={v.id} value={v.id}>
-                      {v.nome} ({v.ativos}/{v.max_contatos_ativos ?? 7})
+                      {v.nome} — {getGrupoLabel(v.grupo)} ({v.ativos}/{v.max_contatos_ativos ?? 7})
                     </option>
                   ))}
               </select>
-              <p className="text-[11px] text-muted-foreground">Se não selecionar, será distribuído automaticamente.</p>
+              <p className="text-[11px] text-muted-foreground">
+                {distribuicaoLigada
+                  ? 'Se não selecionar, será distribuído automaticamente.'
+                  : 'A distribuição automática está desligada: sem selecionar, a vida fica sem voluntário.'}
+              </p>
             </div>
 
             {/* Fase inicial */}
