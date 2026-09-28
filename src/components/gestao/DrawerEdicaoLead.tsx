@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { isValidPhoneNumber } from 'libphonenumber-js'
 import { X, ExternalLink } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
@@ -16,7 +17,15 @@ import type { Contact, ContactTipo, ContactGrupo, ContactStatus, Profile, LeadHi
 
 const schema = z.object({
   nome: z.string().min(2),
-  telefone: z.string().min(10).max(11).regex(/^\d+$/, 'Somente dígitos'),
+  // Aceita os dois formatos que convivem no banco: internacional (+5511...),
+  // gravado pelo formulário público, e o local antigo (11 dígitos). A regra
+  // anterior exigia só dígitos com no máximo 11, então qualquer contato com
+  // DDI era impossível de salvar — inclusive quando a pessoa só queria trocar
+  // o voluntário.
+  telefone: z.string().trim().refine(
+    v => (v.startsWith('+') ? isValidPhoneNumber(v) : /^\d{10,11}$/.test(v)),
+    'Telefone inválido. Use +55 11 99999-9999 ou 11999999999.',
+  ),
   email: z.string().email().optional().or(z.literal('')),
   tipo: z.enum(['novo_nascimento', 'reconciliacao', 'visitante'] as const),
   status: z.enum(['ativo', 'sem_resposta', 'encaminhado', 'arquivado', 'batizado', 'reciclado', 'pendente_aprovacao', 'inativo'] as const),
@@ -212,6 +221,9 @@ export function DrawerEdicaoLead({ contact, onClose, onSaved }: Props) {
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1">Telefone *</label>
                   <input className={cn('zion-input', errors.telefone && 'border-red-400')} {...register('telefone')} />
+                  {errors.telefone && (
+                    <p className="text-[11px] text-red-400 mt-1">{errors.telefone.message}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1">E-mail</label>
