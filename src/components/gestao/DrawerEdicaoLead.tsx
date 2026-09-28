@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -76,13 +76,25 @@ export function DrawerEdicaoLead({ contact, onClose, onSaved }: Props) {
 
   const grupoSelecionado = watch('grupo')
 
+  // Todos os voluntários ativos, não só os do grupo da vida. Atribuir à mão é
+  // decisão de quem atribui: o sistema mostra o grupo de cada um e deixa
+  // escolher. A distribuição automática continua presa ao mesmo grupo.
   const { data: voluntarios } = useQuery({
-    queryKey: ['voluntarios-gestao', grupoSelecionado],
+    queryKey: ['voluntarios-gestao'],
     queryFn: async () => {
-      const { data } = await supabase.from('profiles').select('id,nome').eq('nivel','voluntario').eq('ativo',true).eq('grupo', grupoSelecionado).order('nome')
-      return data as Pick<Profile,'id'|'nome'>[]
+      const { data } = await supabase.from('profiles').select('id,nome,grupo').eq('nivel','voluntario').eq('ativo',true).order('nome')
+      return data as Pick<Profile,'id'|'nome'|'grupo'>[]
     },
   })
+
+  // Os do grupo da vida primeiro — continuam sendo a escolha mais provável.
+  const voluntariosOrdenados = useMemo(() => {
+    return [...(voluntarios ?? [])].sort((a, b) => {
+      const pesoA = a.grupo === grupoSelecionado ? 0 : 1
+      const pesoB = b.grupo === grupoSelecionado ? 0 : 1
+      return pesoA - pesoB || a.nome.localeCompare(b.nome)
+    })
+  }, [voluntarios, grupoSelecionado])
 
   const { data: historico } = useQuery({
     queryKey: ['lead-historico-gestao', contact.id],
@@ -242,7 +254,11 @@ export function DrawerEdicaoLead({ contact, onClose, onSaved }: Props) {
                   <label className="block text-xs font-medium text-muted-foreground mb-1">Voluntário</label>
                   <select className="zion-input" {...register('voluntario_atribuido_id')}>
                     <option value="">— Sem atribuição —</option>
-                    {voluntarios?.map(v => <option key={v.id} value={v.id}>{v.nome}</option>)}
+                    {voluntariosOrdenados.map(v => (
+                      <option key={v.id} value={v.id}>
+                        {v.nome}{v.grupo ? ` — ${getGrupoLabel(v.grupo)}` : ''}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
