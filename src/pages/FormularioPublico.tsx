@@ -10,6 +10,31 @@ import { DEFAULT_CHURCH_ID } from '@/lib/constants/church'
 import { PhoneInputInternacional, validatePhone } from '@/components/ui/PhoneInputInternacional'
 import type { ContactTipo, SubtipoVisitante } from '@/types/database'
 
+/** Sim/Não em dois botões: no culto se responde com o polegar, não digitando. */
+function SimNao({ value, onChange }: {
+  value: 'sim' | 'nao' | ''
+  onChange: (v: 'sim' | 'nao') => void
+}) {
+  return (
+    <div className="flex gap-2">
+      {([{ v: 'sim', label: 'Sim' }, { v: 'nao', label: 'Não' }] as const).map(opt => {
+        const active = value === opt.v
+        return (
+          <button key={opt.v} type="button" onClick={() => onChange(opt.v)}
+            className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all"
+            style={{
+              border:     active ? '1px solid #00B0A8' : '1px solid #1A3540',
+              background: active ? 'rgba(0,176,168,0.1)' : '#071920',
+              color:      active ? '#00B0A8' : '#7A9FA8',
+            }}>
+            {opt.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 /** UUID v4. `crypto.randomUUID` exige contexto seguro e Safari recente. */
 function gerarId(): string {
   const c = globalThis.crypto
@@ -59,6 +84,9 @@ interface FormData {
   dataEntrada: string
   localCulto: string
   subtipoVisitante: SubtipoVisitante | ''
+  /** '' = ainda não respondeu. Só perguntado para quem registra uma decisão. */
+  jaFezDecisaoAntes: 'sim' | 'nao' | ''
+  jaBatizouOutraIgreja: 'sim' | 'nao' | ''
   igrejaLocalNome: string
 }
 
@@ -72,6 +100,8 @@ function emptyForm(): FormData {
     dataEntrada: new Date().toISOString().split('T')[0],
     localCulto: '',
     subtipoVisitante: '',
+    jaFezDecisaoAntes: '',
+    jaBatizouOutraIgreja: '',
     igrejaLocalNome: '',
   }
 }
@@ -114,7 +144,8 @@ export default function FormularioPublico() {
   }
 
   function setTipo(value: ContactTipo) {
-    setForm(f => ({ ...f, tipo: value, subtipoVisitante: '', igrejaLocalNome: '' }))
+    setForm(f => ({ ...f, tipo: value, subtipoVisitante: '', igrejaLocalNome: '',
+                    jaFezDecisaoAntes: '', jaBatizouOutraIgreja: '' }))
     setErrors(e => ({ ...e, tipo: '' }))
   }
 
@@ -132,6 +163,11 @@ export default function FormularioPublico() {
     if (c === 'momento') {
       if (!form.tipo)        errs.tipo = 'Selecione uma opção'
       if (!form.dataEntrada) errs.dataEntrada = 'Informe a data'
+      // Visitante não está registrando uma decisão: as perguntas não aparecem.
+      if (form.tipo && form.tipo !== 'visitante') {
+        if (!form.jaFezDecisaoAntes)    errs.jaFezDecisaoAntes = 'Selecione uma opção'
+        if (!form.jaBatizouOutraIgreja) errs.jaBatizouOutraIgreja = 'Selecione uma opção'
+      }
     }
 
     if (c === 'perfil') {
@@ -191,6 +227,9 @@ export default function FormularioPublico() {
         church_id:          DEFAULT_CHURCH_ID,
         sexo:               form.sexo || null,
         subtipo_visitante:  subtipo,
+        // Nulo quando não perguntado (visitante), que é diferente de "não".
+        ja_fez_decisao_antes:    form.jaFezDecisaoAntes    ? form.jaFezDecisaoAntes === 'sim' : null,
+        ja_batizou_outra_igreja: form.jaBatizouOutraIgreja ? form.jaBatizouOutraIgreja === 'sim' : null,
         possui_igreja_local: subtipo === 'COM_IGREJA' ? true : subtipo === 'SEM_IGREJA' ? false : null,
         igreja_local_nome:  subtipo === 'COM_IGREJA' && form.igrejaLocalNome.trim()
                               ? form.igrejaLocalNome.trim()
@@ -389,6 +428,27 @@ export default function FormularioPublico() {
                   })}
                 </div>
               </Field>
+
+              {/* Perguntas da ponta: ajudam o voluntário a entender o que a
+                  pessoa viveu antes da primeira conversa. Não fazem sentido
+                  para visitante, que não está registrando uma decisão. */}
+              {form.tipo && form.tipo !== 'visitante' && (
+                <>
+                  <Field label="Você já havia feito essa decisão antes?" error={errors.jaFezDecisaoAntes}>
+                    <SimNao
+                      value={form.jaFezDecisaoAntes}
+                      onChange={v => set('jaFezDecisaoAntes', v)}
+                    />
+                  </Field>
+
+                  <Field label="Você já se batizou em outra igreja?" error={errors.jaBatizouOutraIgreja}>
+                    <SimNao
+                      value={form.jaBatizouOutraIgreja}
+                      onChange={v => set('jaBatizouOutraIgreja', v)}
+                    />
+                  </Field>
+                </>
+              )}
 
               <Field label="Data do culto que você veio" error={errors.dataEntrada}>
                 <input

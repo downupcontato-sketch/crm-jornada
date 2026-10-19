@@ -95,6 +95,10 @@ export interface Contact {
   possui_igreja_local: boolean | null
   igreja_local_nome: string | null
   subtipo_visitante: SubtipoVisitante | null
+  /** "Já fez essa decisão antes?" — nulo quando não foi perguntado. */
+  ja_fez_decisao_antes: boolean | null
+  /** "Já se batizou em outra igreja?" — nulo quando não foi perguntado. */
+  ja_batizou_outra_igreja: boolean | null
   captador_id: string | null
   numero_pulseira: string | null
   autorizacao_contato: boolean

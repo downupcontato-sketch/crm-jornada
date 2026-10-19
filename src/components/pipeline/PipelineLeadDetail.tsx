@@ -263,6 +263,16 @@ export function PipelineLeadDetail({ contact: initial, onUpdated, onFullPage, vo
             <div className="bg-muted/20 border border-border rounded-xl divide-y divide-border">
               <Row label="Telefone" value={formatPhone(contact.telefone)} />
               <Row label="Grupo" value={getGrupoLabel(contact.grupo)} />
+              {/* Local do culto: o grupo e o culto têm os mesmos nomes (VOX, RISE…),
+                  e sem isto o voluntário lia a faixa etária como se fosse o culto. */}
+              {contact.local_culto && <Row label="Culto" value={contact.local_culto} />}
+              {/* Respostas das perguntas do cadastro. Nulo = não foi perguntado. */}
+              {contact.ja_fez_decisao_antes != null && (
+                <Row label="Já decidiu antes" value={contact.ja_fez_decisao_antes ? 'Sim' : 'Não'} />
+              )}
+              {contact.ja_batizou_outra_igreja != null && (
+                <Row label="Batizou em outra igreja" value={contact.ja_batizou_outra_igreja ? 'Sim' : 'Não'} />
+              )}
               {contact.sexo && <Row label="Sexo" value={contact.sexo} />}
               {contact.idade && <Row label="Idade" value={`${contact.idade} anos`} />}
               {contact.igreja_origem && <Row label="Igreja de origem" value={contact.igreja_origem} />}
