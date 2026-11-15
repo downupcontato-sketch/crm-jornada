@@ -56,6 +56,28 @@ const ROTA_INICIAL: Record<string, string> = {
   linha_de_frente: '/pipeline',
 }
 
+// ─── Quem está cadastrando ──────────────────────────────────────────────────
+
+/** Quem preenche o formulário sem login. 'proprio' = a vida se cadastrando sozinha. */
+type Cadastrante = { nome: string; telefone: string } | 'proprio' | null
+
+const CHAVE_CADASTRANTE = 'jornada:cadastrante'
+
+// sessionStorage: vale até fechar o navegador, e o celular passado adiante pede de novo.
+function lerCadastrante(): Cadastrante {
+  try {
+    const v = JSON.parse(sessionStorage.getItem(CHAVE_CADASTRANTE) ?? 'null')
+    return v?.nome && v?.telefone ? v : null
+  } catch { return null }
+}
+
+function salvarCadastrante(c: Cadastrante) {
+  try {
+    if (c && c !== 'proprio') sessionStorage.setItem(CHAVE_CADASTRANTE, JSON.stringify(c))
+    else sessionStorage.removeItem(CHAVE_CADASTRANTE)
+  } catch { /* sem storage o formulário funciona; só pede de novo */ }
+}
+
 // ─── Tipos internos ─────────────────────────────────────────────────────────
 
 type StepContent = 'voce' | 'momento' | 'perfil' | 'local'
@@ -120,6 +142,22 @@ export default function FormularioPublico() {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [phoneCountry, setPhoneCountry] = useState('BR')
+  const [cadastrante, setCadastranteState] = useState<Cadastrante>(lerCadastrante)
+  const [quem, setQuem] = useState({ nome: '', telefone: '' })
+  const [quemPais, setQuemPais] = useState('BR')
+
+  function setCadastrante(c: Cadastrante) {
+    salvarCadastrante(c)
+    setCadastranteState(c)
+  }
+
+  function confirmarQuem() {
+    const errs: Record<string, string> = {}
+    if (!quem.nome.trim()) errs.quemNome = 'Informe seu nome'
+    if (!validatePhone(quem.telefone, quemPais)) errs.quemTelefone = `Número inválido para ${quemPais}`
+    setErrors(errs)
+    if (Object.keys(errs).length === 0) setCadastrante({ nome: quem.nome.trim(), telefone: quem.telefone })
+  }
 
   const isVisitante = form.tipo === 'visitante'
   const totalSteps  = isVisitante ? 4 : 3
@@ -235,6 +273,9 @@ export default function FormularioPublico() {
                               ? form.igrejaLocalNome.trim()
                               : null,
         captador_id:        profile?.id ?? null,
+        // Logado: o próprio perfil. Sem login: quem se identificou no início da sessão.
+        cadastrado_por_nome:     profile?.nome ?? (typeof cadastrante === 'object' ? cadastrante?.nome ?? null : null),
+        cadastrado_por_telefone: profile?.telefone ?? (typeof cadastrante === 'object' ? cadastrante?.telefone ?? null : null),
         status:             interno ? 'ativo' : 'pendente_aprovacao',
         fase_pipeline:      'CONTATO_INICIAL',
         subetapa_contato:   'TENTATIVA_1',
@@ -275,6 +316,8 @@ export default function FormularioPublico() {
     setStep(1)
     setSuccess(false)
     setAvisoDistribuicao(null)
+    // "Estou me cadastrando" vale para um cadastro só; o próximo pergunta de novo.
+    if (cadastrante === 'proprio') setCadastrante(null)
   }
 
   // ─── Tela de sucesso ───────────────────────────────────────────────────────
@@ -313,6 +356,58 @@ export default function FormularioPublico() {
     )
   }
 
+  // ─── Quem está cadastrando (só sem login) ──────────────────────────────────
+
+  if (!profile && !cadastrante) {
+    return (
+      <div className="min-h-screen flex flex-col" style={{ background: '#050F12' }}>
+        <div className="flex flex-col items-center pt-10 pb-6 px-4 text-center">
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4"
+            style={{ background: '#071C23', border: '1px solid #1A3540' }}>
+            <span className="font-bold text-xl" style={{ color: '#00B0A8' }}>Z</span>
+          </div>
+          <h1 className="text-xl font-semibold text-white">Quem está fazendo os cadastros?</h1>
+          <p className="text-sm mt-2 max-w-xs leading-relaxed" style={{ color: '#5A7A82' }}>
+            Você preenche só uma vez. Todos os cadastros que fizer agora ficam no seu nome.
+          </p>
+        </div>
+        <div className="flex-1 px-4 pb-10">
+          <div className="max-w-md mx-auto rounded-3xl p-6 space-y-5"
+            style={{ background: '#0C1D23', border: '1px solid #1A3540' }}>
+            <Field label="Seu nome" error={errors.quemNome}>
+              <input
+                type="text" placeholder="Seu nome completo" autoComplete="name"
+                value={quem.nome}
+                onChange={e => { setQuem(q => ({ ...q, nome: e.target.value })); setErrors(er => ({ ...er, quemNome: '' })) }}
+                style={inputStyle(!!errors.quemNome)}
+              />
+            </Field>
+            <Field label="Seu WhatsApp" error={errors.quemTelefone}>
+              <PhoneInputInternacional
+                value={quem.telefone}
+                onChange={e164 => { setQuem(q => ({ ...q, telefone: e164 })); setErrors(er => ({ ...er, quemTelefone: '' })) }}
+                onCountryChange={setQuemPais}
+                defaultCountry="BR"
+                inputStyle={inputStyle(!!errors.quemTelefone)}
+              />
+            </Field>
+            <button onClick={confirmarQuem}
+              className="w-full py-3 rounded-2xl text-sm font-semibold transition-all"
+              style={{ background: '#00B0A8', color: '#071C23' }}>
+              Começar cadastros
+            </button>
+            <button onClick={() => { setErrors({}); setCadastrante('proprio') }}
+              className="w-full py-3 rounded-2xl text-sm transition-all"
+              style={{ border: '1px solid #1A3540', color: '#7A9FA8', background: 'transparent' }}>
+              Estou me cadastrando
+            </button>
+          </div>
+        </div>
+        <p className="text-center text-xs pb-6" style={{ color: '#2A4550' }}>Zion Church · Jornada CRM</p>
+      </div>
+    )
+  }
+
   // ─── Render principal ──────────────────────────────────────────────────────
 
   return (
@@ -325,6 +420,20 @@ export default function FormularioPublico() {
             <ArrowLeft size={14} />
             Voltar ao CRM
           </Link>
+        </div>
+      )}
+
+      {!profile && cadastrante && cadastrante !== 'proprio' && (
+        <div className="flex items-center gap-3 px-4 py-2.5 text-xs"
+          style={{ background: '#0C1D23', borderBottom: '1px solid #1A3540', color: '#7A9FA8' }}>
+          <span className="flex-1 min-w-0 truncate">
+            Cadastrando como <strong className="text-white">{cadastrante.nome}</strong>
+          </span>
+          <button onClick={() => setCadastrante(null)}
+            className="px-3 py-1.5 rounded-lg shrink-0"
+            style={{ border: '1px solid #1A3540', color: '#7A9FA8' }}>
+            Não sou eu
+          </button>
         </div>
       )}
 

@@ -45,7 +45,7 @@ interface Filtros { busca: string; grupo: string; status: string; tipo: string; 
 function buscaFiltro(busca: string): string {
   const termo = busca.replace(/[,()]/g, ' ').trim()
   const digitos = busca.replace(/\D/g, '')
-  const ors = [`nome.ilike.%${termo}%`]
+  const ors = [`nome.ilike.%${termo}%`, `cadastrado_por_nome.ilike.%${termo}%`]
   if (digitos.length >= 3) {
     ors.push(`telefone_digits.like.%${digitos}%`)
     // Digitou com DDI: casa também com os cadastros gravados sem o 55.
@@ -321,6 +321,7 @@ export default function GestaoLeads() {
                         <td className="px-4 py-3">
                           <p className="text-sm font-medium text-offwhite truncate max-w-[160px]">{c.nome}</p>
                           {c.email && <p className="text-[11px] text-muted-foreground truncate max-w-[160px]">{c.email}</p>}
+                          {c.cadastrado_por_nome && <p className="text-[11px] text-muted-foreground truncate max-w-[160px]">por {c.cadastrado_por_nome}</p>}
                         </td>
                         <td className="px-4 py-3 hidden sm:table-cell">
                           <span className="font-mono text-xs text-muted-foreground">{c.telefone}</span>
@@ -372,7 +373,7 @@ export default function GestaoLeads() {
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             className="zion-input pl-8 text-sm w-full"
-            placeholder="Buscar por nome ou telefone…"
+            placeholder="Buscar por nome, telefone ou quem cadastrou…"
             value={buscaInput}
             onChange={e => onBuscaChange(e.target.value)}
             autoFocus

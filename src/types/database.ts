@@ -100,6 +100,9 @@ export interface Contact {
   /** "Já se batizou em outra igreja?" — nulo quando não foi perguntado. */
   ja_batizou_outra_igreja: boolean | null
   captador_id: string | null
+  /** Quem preencheu o cadastro (perfil logado ou quem se identificou no formulário). Nulo em cadastros antigos e no autocadastro. */
+  cadastrado_por_nome: string | null
+  cadastrado_por_telefone: string | null
   numero_pulseira: string | null
   autorizacao_contato: boolean
   etapa_atual: number
