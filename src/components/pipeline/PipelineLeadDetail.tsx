@@ -266,6 +266,11 @@ export function PipelineLeadDetail({ contact: initial, onUpdated, onFullPage, vo
               {/* Local do culto: o grupo e o culto têm os mesmos nomes (VOX, RISE…),
                   e sem isto o voluntário lia a faixa etária como se fosse o culto. */}
               {contact.local_culto && <Row label="Culto" value={contact.local_culto} />}
+              {contact.cadastrado_por_nome && (
+                <Row label="Cadastrado por" value={contact.cadastrado_por_telefone
+                  ? `${contact.cadastrado_por_nome} · ${formatPhone(contact.cadastrado_por_telefone)}`
+                  : contact.cadastrado_por_nome} />
+              )}
               {/* Respostas das perguntas do cadastro. Nulo = não foi perguntado. */}
               {contact.ja_fez_decisao_antes != null && (
                 <Row label="Já decidiu antes" value={contact.ja_fez_decisao_antes ? 'Sim' : 'Não'} />
