@@ -9,6 +9,7 @@ import SolicitarAcesso from '@/pages/SolicitarAcesso'
 import AguardandoAprovacao from '@/pages/AguardandoAprovacao'
 import Dashboard from '@/pages/Dashboard'
 import Pipeline from '@/pages/Pipeline'
+import Batismo from '@/pages/Batismo'
 import MeusContatos from '@/pages/MeusContatos'
 import Cadastro from '@/pages/Cadastro'
 import ContatoDetail from '@/pages/ContatoDetail'
@@ -53,6 +54,7 @@ export default function App() {
             <Route path="/usuarios" element={<ProtectedRoute allowedRoles={['admin','coordenador']}><Usuarios /></ProtectedRoute>} />
             <Route path="/importacao" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador']}><Importacao /></ProtectedRoute>} />
             <Route path="/gestao/leads" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador']}><GestaoLeads /></ProtectedRoute>} />
+            <Route path="/batismo" element={<ProtectedRoute allowedRoles={['admin','lider','coordenador']}><Batismo /></ProtectedRoute>} />
             <Route path="/culto" element={<ProtectedRoute allowedRoles={['linha_de_frente','admin','lider']}><Culto /></ProtectedRoute>} />
             <Route path="/dashboard/coordenador" element={<ProtectedRoute allowedRoles={['coordenador','admin','lider']}><DashboardCoordenador /></ProtectedRoute>} />
             <Route path="/relatorios" element={<ProtectedRoute allowedRoles={['admin','lider']}><Relatorios /></ProtectedRoute>} />

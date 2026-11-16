@@ -20,8 +20,12 @@ const PER_PAGE = 25
 
 const CHIPS: Record<string, { key: string; label: string }[]> = {
   CONTATO_INICIAL: [
-    { key: 'TENTATIVA_1', label: '1ª tentativa' },
-    { key: 'TENTATIVA_2', label: '2ª tentativa' },
+    { key: 'TENTATIVA_1', label: 'Contato inicial' },
+    { key: 'TENTATIVA_2', label: 'FUP 01' },
+    { key: 'FUP_2', label: 'FUP 02' },
+    { key: 'FUP_3', label: 'FUP 03' },
+    { key: 'FUP_4', label: 'FUP 04' },
+    { key: 'FUP_5', label: 'FUP 05' },
   ],
   QUALIFICACAO: [
     { key: 'CONVERSA',          label: 'Conversa' },
@@ -33,7 +37,8 @@ const CHIPS: Record<string, { key: string; label: string }[]> = {
   // AULAS: sem chips
   POS_AULA: [
     { key: 'enc:ENCAMINHADO',           label: 'Encaminhado' },
-    { key: 'enc:HANDS_OFF_CONFIRMADO',  label: 'Hands-off ✓' },
+    { key: 'enc:HANDS_OFF_CONFIRMADO',  label: 'Links' },
+    { key: 'enc:RAIZES',  label: 'Raízes' },
     { key: 'bat:DECIDIU_BATIZAR',       label: 'Decidiu batizar' },
     { key: 'bat:LISTA_ESPERA',          label: 'Lista de espera' },
     { key: 'bat:INSCRICAO_CONFIRMADA',  label: 'Inscrição confirmada' },

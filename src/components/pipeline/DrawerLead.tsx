@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { cn, formatPhone, getGrupoLabel, getTipoLabel, getTipoBadgeColor } from '@/lib/utils'
 import {
   avancarSubetapa, pularParaConversa, ativarTrilhaBatismo, calcularFrequencia,
-  calcularSLAFase, calcularTimerResposta, proximaSubetapaLabel, trilhaProgresso,
+  calcularSLAFase, calcularTimerResposta, numeroFup, proximaSubetapaLabel, trilhaProgresso,
   FASE_LABELS, SUBETAPA_LABELS,
 } from '@/lib/pipeline'
 import { ModalPerda } from './ModalPerda'
@@ -50,7 +50,8 @@ export function ContatoInicialSection({
   const [subOpcao, setSubOpcao] = useState<null | 'sim' | 'nao'>(null)
   const [confirmNumeroInvalido, setConfirmNumeroInvalido] = useState(false)
   const timer = calcularTimerResposta(contact)
-  const isTentativa2 = contact.subetapa_contato === 'TENTATIVA_2'
+  const fup = numeroFup(contact)
+  const isTentativa2 = fup > 0
   const tentativas = contact.tentativas_contato ?? 0
   const isFeedbackPendente = timer === 'feedback_pendente' || contact.timer_status === 'feedback_pendente'
 
@@ -107,12 +108,12 @@ export function ContatoInicialSection({
     )
   }
 
-  // State C: TENTATIVA_2, WA not yet sent for 2nd attempt
-  if (isTentativa2 && tentativas < 2) {
+  // State C: em follow-up, WhatsApp deste FUP ainda não enviado
+  if (isTentativa2 && tentativas < fup + 1) {
     return (
       <div className="px-5 pt-4 space-y-3">
         <div className="bg-yellow-400/10 border border-yellow-400/20 rounded-lg px-3 py-2 text-xs text-yellow-400">
-          2ª tentativa — sem resposta na primeira
+          FUP {String(fup).padStart(2, '0')} — sem resposta até agora
         </div>
         <button
           onClick={onWa}
@@ -125,11 +126,11 @@ export function ContatoInicialSection({
           )}
         >
           <Phone size={14} />
-          {waSent ? '✓ 2º WhatsApp enviado' : 'Enviar 2º WhatsApp'}
+          {waSent ? `✓ WhatsApp do FUP ${String(fup).padStart(2, '0')} enviado` : `Enviar WhatsApp do FUP ${String(fup).padStart(2, '0')}`}
         </button>
         {waSent && (
           <p className="text-xs text-muted-foreground text-center">
-            2ª tentativa registrada. Volte após receber a resposta.
+            Follow-up registrado. Volte após receber a resposta.
           </p>
         )}
       </div>
@@ -201,14 +202,14 @@ export function ContatoInicialSection({
         </button>
       )}
 
-      {subOpcao === 'nao' && !isTentativa2 && (
+      {subOpcao === 'nao' && fup < 5 && (
         <div className="space-y-2">
           <button
             onClick={onNaoRespondeuAvancar}
             disabled={advancing}
             className="w-full py-2.5 rounded-lg text-sm font-medium border border-border text-muted-foreground hover:text-offwhite hover:border-foreground/30 transition-all flex items-center justify-center gap-2"
           >
-            {advancing ? <Spinner /> : '2ª Tentativa →'}
+            {advancing ? <Spinner /> : `FUP ${String(fup + 1).padStart(2, '0')} →`}
           </button>
           <button
             onClick={onArquivar}
@@ -219,10 +220,10 @@ export function ContatoInicialSection({
         </div>
       )}
 
-      {subOpcao === 'nao' && isTentativa2 && (
+      {subOpcao === 'nao' && fup >= 5 && (
         <div className="space-y-2">
           <div className="bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2 text-xs text-red-400">
-            Sem resposta após 2 tentativas — registrar perda
+            Sem resposta após o FUP 05 — registrar perda
           </div>
           <button
             onClick={onArquivar}

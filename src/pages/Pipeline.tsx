@@ -2,8 +2,7 @@ import { useParams } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { Layout } from '@/components/layout/Layout'
 import { PipelineVoluntario } from '@/components/pipeline/PipelineVoluntario'
-import { PipelineExecutivo } from '@/components/pipeline/PipelineExecutivo'
-import { PipelineLider } from '@/components/pipeline/PipelineLider'
+import { PipelineQuadro } from '@/components/pipeline/PipelineQuadro'
 import { PipelineSplitView } from '@/components/pipeline/PipelineSplitView'
 
 export default function Pipeline() {
@@ -21,7 +20,7 @@ export default function Pipeline() {
 
   return (
     <Layout title="Pipeline">
-      {isLider ? <PipelineLider /> : isAdmin || isCoordenador ? <PipelineExecutivo /> : <PipelineVoluntario />}
+      {isAdmin || isLider || isCoordenador ? <PipelineQuadro /> : <PipelineVoluntario />}
     </Layout>
   )
 }

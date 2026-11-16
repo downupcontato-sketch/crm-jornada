@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { Contact, FasePipeline, MotivoPerdaLead } from '@/types/database'
+import type { Contact, FasePipeline, MotivoPerdaLead, SubetapaContato } from '@/types/database'
 
 // ─── Frequência nas aulas ────────────────────────────────────────────────────
 
@@ -76,8 +76,12 @@ export const FASE_LABELS: Record<FasePipeline, string> = {
 export const SUBETAPA_LABELS: Record<string, string> = {
   // Contato (TENTATIVA_3 mantido apenas para exibição de histórico legado)
   TENTATIVA_1:          'Primeiro contato',
-  TENTATIVA_2:          'Segunda tentativa',
-  TENTATIVA_3:          'Segunda tentativa',  // legado: exibe igual a TENTATIVA_2
+  TENTATIVA_2:          'FUP 01',
+  TENTATIVA_3:          'FUP 01',  // legado: exibe igual a TENTATIVA_2
+  FUP_2:                'FUP 02',
+  FUP_3:                'FUP 03',
+  FUP_4:                'FUP 04',
+  FUP_5:                'FUP 05',
   // Qualificação
   CONVERSA:             'Em conversa',
   PERFIL_CONFIRMADO:    'Perfil qualificado',
@@ -86,7 +90,8 @@ export const SUBETAPA_LABELS: Record<string, string> = {
   PROVER_CONFIRMADO:    'PROVER confirmado',
   // Encaminhamento
   ENCAMINHADO:          'Encaminhado',
-  HANDS_OFF_CONFIRMADO: 'Hands-off confirmado',
+  HANDS_OFF_CONFIRMADO: 'Links',
+  RAIZES:               'Raízes',
   // Batismo
   DECIDIU_BATIZAR:      'Decidiu batizar',
   LISTA_ESPERA:         'Lista de espera',
@@ -99,13 +104,19 @@ export const SUBETAPA_LABELS: Record<string, string> = {
 // Label do próximo passo para o botão "Avançar"
 export function proximaSubetapaLabel(c: Pick<Contact, 'fase_pipeline'|'subetapa_contato'|'subetapa_qualificacao'|'subetapa_encaminhamento'|'subetapa_batismo'>): string {
   const map: Record<string, string> = {
-    'CONTATO_INICIAL:TENTATIVA_1': 'Segunda tentativa',
+    'CONTATO_INICIAL:TENTATIVA_1': 'FUP 01',
+    'CONTATO_INICIAL:TENTATIVA_2': 'FUP 02',
+    'CONTATO_INICIAL:TENTATIVA_3': 'FUP 02',
+    'CONTATO_INICIAL:FUP_2':       'FUP 03',
+    'CONTATO_INICIAL:FUP_3':       'FUP 04',
+    'CONTATO_INICIAL:FUP_4':       'FUP 05',
     'QUALIFICACAO:CONVERSA':          'Perfil confirmado',
     'QUALIFICACAO:PERFIL_CONFIRMADO': 'Convite enviado',
     'QUALIFICACAO:CONVITE_ENVIADO':   'Aguardando PROVER',
     'QUALIFICACAO:AGUARDANDO_PROVER': 'PROVER confirmado',
     'QUALIFICACAO:PROVER_CONFIRMADO': 'Iniciar Aulas',
-    'POS_AULA:ENCAMINHADO':           'Hands-off confirmado',
+    'POS_AULA:ENCAMINHADO':           'Links',
+    'POS_AULA:HANDS_OFF_CONFIRMADO':  'Raízes',
     'POS_AULA:DECIDIU_BATIZAR':       'Lista de espera',
     'POS_AULA:LISTA_ESPERA':          'Inscrição confirmada',
     'POS_AULA:INSCRICAO_CONFIRMADA':  'Aula de batismo',
@@ -125,7 +136,7 @@ export function trilhaProgresso(c: Contact): NoProgresso[] {
   const nos: NoProgresso[] = []
 
   // Contato Inicial
-  const subContatos = ['TENTATIVA_1','TENTATIVA_2'] as const
+  const subContatos = ['TENTATIVA_1','TENTATIVA_2','FUP_2','FUP_3','FUP_4','FUP_5'] as const
   const fasesAposContato: FasePipeline[] = ['QUALIFICACAO','AULAS','POS_AULA','BATIZADO']
   for (const sub of subContatos) {
     const isDone = fasesAposContato.includes(c.fase_pipeline) ||
@@ -156,10 +167,11 @@ export function trilhaProgresso(c: Contact): NoProgresso[] {
   }
 
   // Encaminhamento
-  const subEnc = ['ENCAMINHADO','HANDS_OFF_CONFIRMADO'] as const
+  const subEnc = ['ENCAMINHADO','HANDS_OFF_CONFIRMADO','RAIZES'] as const
   for (const sub of subEnc) {
     const isDone = c.fase_pipeline === 'BATIZADO' ||
-      (c.fase_pipeline === 'POS_AULA' && c.subetapa_encaminhamento === 'HANDS_OFF_CONFIRMADO' && sub === 'ENCAMINHADO')
+      (c.fase_pipeline === 'POS_AULA' && !!c.subetapa_encaminhamento &&
+        subEnc.indexOf(sub) < subEnc.indexOf(c.subetapa_encaminhamento))
     const isCurrent = c.fase_pipeline === 'POS_AULA' && c.subetapa_encaminhamento === sub
     nos.push({ label: SUBETAPA_LABELS[sub], status: isDone ? 'done' : isCurrent ? 'current' : 'pending' })
   }
@@ -180,12 +192,24 @@ export function trilhaProgresso(c: Contact): NoProgresso[] {
 
 // ─── Avançar subetapa (client-side) ─────────────────────────────────────────
 
+const PROXIMO_FUP: Record<string, SubetapaContato> = {
+  TENTATIVA_1: 'TENTATIVA_2', TENTATIVA_2: 'FUP_2', TENTATIVA_3: 'FUP_2',
+  FUP_2: 'FUP_3', FUP_3: 'FUP_4', FUP_4: 'FUP_5',
+}
+
+/** Número do follow-up atual (1 a 5), ou 0 antes do primeiro. */
+export function numeroFup(c: Pick<Contact, 'subetapa_contato'>): number {
+  const s = c.subetapa_contato
+  if (s === 'TENTATIVA_2' || s === 'TENTATIVA_3') return 1
+  return s?.startsWith('FUP_') ? Number(s.slice(4)) : 0
+}
+
 export async function avancarSubetapa(c: Contact, userId: string): Promise<Partial<Contact> | null> {
   let upd: Partial<Contact> = {}
 
   if (c.fase_pipeline === 'CONTATO_INICIAL') {
-    // Máximo 2 tentativas — TENTATIVA_2 é resolvida diretamente no DrawerLead
-    if (c.subetapa_contato === 'TENTATIVA_1') upd = { subetapa_contato: 'TENTATIVA_2' }
+    // Até 5 follow-ups (FUP 01 = TENTATIVA_2). Depois do FUP 05 só resta registrar perda.
+    upd = PROXIMO_FUP[c.subetapa_contato ?? ''] ? { subetapa_contato: PROXIMO_FUP[c.subetapa_contato ?? ''] } : {}
   } else if (c.fase_pipeline === 'QUALIFICACAO') {
     const next: Record<string, Partial<Contact>> = {
       CONVERSA:          { subetapa_qualificacao: 'PERFIL_CONFIRMADO' },
@@ -198,6 +222,8 @@ export async function avancarSubetapa(c: Contact, userId: string): Promise<Parti
   } else if (c.fase_pipeline === 'POS_AULA') {
     if (c.subetapa_encaminhamento === 'ENCAMINHADO') {
       upd = { subetapa_encaminhamento: 'HANDS_OFF_CONFIRMADO', link_confirmado_em: new Date().toISOString() }
+    } else if (c.subetapa_encaminhamento === 'HANDS_OFF_CONFIRMADO') {
+      upd = { subetapa_encaminhamento: 'RAIZES' }
     } else if (c.subetapa_batismo) {
       const next: Record<string, Partial<Contact>> = {
         DECIDIU_BATIZAR:      { subetapa_batismo: 'LISTA_ESPERA' },
