@@ -19,11 +19,13 @@ export type FasePipeline =
   | 'CONTATO_INICIAL' | 'QUALIFICACAO' | 'AULAS'
   | 'POS_AULA' | 'BATIZADO' | 'PERDIDO' | 'REENCAMINHADO'
 
-export type SubetapaContato = 'TENTATIVA_1' | 'TENTATIVA_2' | 'TENTATIVA_3'
+/** TENTATIVA_1 = contato inicial/tentando; TENTATIVA_2 (e o legado TENTATIVA_3) = FUP 01; FUP_2..FUP_5 = FUP 02 a 05. */
+export type SubetapaContato = 'TENTATIVA_1' | 'TENTATIVA_2' | 'TENTATIVA_3' | 'FUP_2' | 'FUP_3' | 'FUP_4' | 'FUP_5'
 export type SubetapaQualificacao =
   | 'CONVERSA' | 'PERFIL_CONFIRMADO' | 'CONVITE_ENVIADO'
   | 'AGUARDANDO_PROVER' | 'PROVER_CONFIRMADO'
-export type SubetapaEncaminhamento = 'ENCAMINHADO' | 'HANDS_OFF_CONFIRMADO'
+/** HANDS_OFF_CONFIRMADO = está num Link; RAIZES = etapa final. */
+export type SubetapaEncaminhamento = 'ENCAMINHADO' | 'HANDS_OFF_CONFIRMADO' | 'RAIZES'
 export type SubetapaBatismo =
   | 'DECIDIU_BATIZAR' | 'LISTA_ESPERA' | 'INSCRICAO_CONFIRMADA'
   | 'AULA_BATISMO' | 'CUMPRE_REQUISITOS' | 'BATISMO_AGENDADO'
@@ -132,6 +134,9 @@ export interface Contact {
   presenca_aula2: boolean | null
   presenca_aula3: boolean | null
   presenca_aula4: boolean | null
+  /** Mantido por trigger no banco: muda sempre que a etapa muda. */
+  etapa_desde: string
+  batismo_finalizado_em: string | null
   pro_ver_inscrito: boolean
   pro_ver_confirmado_em: string | null
   data_batismo_agendado: string | null

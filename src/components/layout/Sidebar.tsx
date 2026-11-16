@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, Users, GitMerge, UserPlus, Settings, LogOut, Menu, X, Upload, ListFilter, BarChart2, TrendingUp } from 'lucide-react'
+import { LayoutDashboard, Users, GitMerge, UserPlus, Settings, LogOut, Menu, X, Upload, ListFilter, BarChart2, TrendingUp, Droplets } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useBadges } from '@/hooks/useBadges'
@@ -20,6 +20,7 @@ const navItems: NavItem[] = [
   { to: '/dashboard',           icon: <LayoutDashboard size={20} />, label: 'Dashboard',      roles: ['admin', 'lider'], end: true },
   { to: '/dashboard/coordenador', icon: <LayoutDashboard size={20} />, label: 'Dashboard',    roles: ['coordenador'] },
   { to: '/pipeline',            icon: <GitMerge size={20} />,        label: 'Pipeline',       roles: ['admin', 'lider', 'coordenador', 'linha_de_frente'] },
+  { to: '/batismo',             icon: <Droplets size={20} />,        label: 'Batismo',        roles: ['admin', 'lider', 'coordenador'] },
   { to: '/meus-contatos',       icon: <Users size={20} />,           label: 'Meus Contatos',  roles: ['voluntario'] },
   { to: '/formulario',          icon: <UserPlus size={20} />,        label: 'Novo Cadastro',  roles: ['admin', 'lider', 'coordenador', 'voluntario', 'linha_de_frente'] },
   { to: '/equipe',              icon: <Users size={20} />,           label: 'Minha Equipe',   roles: ['coordenador', 'admin', 'lider'] },
