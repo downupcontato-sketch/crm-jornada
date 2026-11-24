@@ -51,9 +51,11 @@ export function colunaJornada(c: Contact): ColunaJornada | null {
     }
     case 'QUALIFICACAO': return 'EM_CONTATO'
     case 'AULAS': {
-      // A aula em que a vida está é a primeira ainda sem presença registrada.
-      const n = [c.presenca_aula1, c.presenca_aula2, c.presenca_aula3, c.presenca_aula4].findIndex(p => p === null)
-      return `AULA_${n === -1 ? 4 : n + 1}` as ColunaJornada
+      // A próxima aula depois da última registrada. O check-in só grava presença,
+      // então pode haver aulas anteriores sem registro (o voluntário confere na ficha).
+      const ultima = [c.presenca_aula1, c.presenca_aula2, c.presenca_aula3, c.presenca_aula4]
+        .reduce((u, p, i) => (p !== null ? i : u), -1)
+      return `AULA_${Math.min(ultima + 2, 4)}` as ColunaJornada
     }
     case 'POS_AULA':
       if (c.subetapa_encaminhamento === 'RAIZES') return 'RAIZES'

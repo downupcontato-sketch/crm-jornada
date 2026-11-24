@@ -10,6 +10,7 @@ import AguardandoAprovacao from '@/pages/AguardandoAprovacao'
 import Dashboard from '@/pages/Dashboard'
 import Pipeline from '@/pages/Pipeline'
 import Batismo from '@/pages/Batismo'
+import CheckinAula from '@/pages/CheckinAula'
 import MeusContatos from '@/pages/MeusContatos'
 import Cadastro from '@/pages/Cadastro'
 import ContatoDetail from '@/pages/ContatoDetail'
@@ -40,6 +41,7 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/solicitar-acesso" element={<SolicitarAcesso />} />
             <Route path="/formulario" element={<FormularioPublico />} />
+            <Route path="/checkin/:aula" element={<CheckinAula />} />
             <Route path="/aguardando-aprovacao" element={<AguardandoAprovacao />} />
             <Route path="/esqueci-senha" element={<EsqueciSenha />} />
             <Route path="/reset-password" element={<ResetPassword />} />
