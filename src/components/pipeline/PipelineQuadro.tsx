@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, QrCode, X } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
@@ -54,8 +56,38 @@ export function EstadoQuadro({ isLoading, error }: { isLoading: boolean; error: 
   return null
 }
 
+function ModalCheckin({ aula, onClose }: { aula: number; onClose: () => void }) {
+  const link = `${window.location.origin}/checkin/${aula}`
+  async function copiar() {
+    try { await navigator.clipboard.writeText(link); toast.success('Link copiado') }
+    catch { toast.error('Não foi possível copiar. Selecione o link e copie.') }
+  }
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/60" onClick={onClose} />
+      <div role="dialog" aria-label={`Check-in da Aula ${aula}`}
+        className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(22rem,calc(100vw-2rem))] bg-card border border-border rounded-2xl p-5 flex flex-col items-center gap-4">
+        <div className="flex items-center w-full">
+          <h3 className="font-semibold text-offwhite">Check-in · Aula {aula}</h3>
+          <button onClick={onClose} aria-label="Fechar" className="ml-auto text-muted-foreground hover:text-foreground"><X size={18} /></button>
+        </div>
+        <div className="bg-white p-3 rounded-xl"><QRCodeSVG value={link} size={200} /></div>
+        <p className="text-xs text-muted-foreground text-center">
+          O aluno abre, informa nome e WhatsApp do cadastro e a presença é registrada.
+        </p>
+        <div className="flex gap-2 w-full">
+          <input readOnly value={link} onFocus={e => e.target.select()} aria-label="Link de check-in"
+            className="zion-input text-xs flex-1 min-w-0" />
+          <button onClick={copiar} className="zion-btn-primary text-xs px-3 py-2">Copiar</button>
+        </div>
+      </div>
+    </>
+  )
+}
+
 export function PipelineQuadro() {
   const [visao, setVisao] = useState<'quadro' | 'voluntario'>('quadro')
+  const [checkin, setCheckin] = useState<number | null>(null)
   const { vidas, nomes, recarregar } = useVidasQuadro('jornada', ['CONTATO_INICIAL', 'QUALIFICACAO', 'AULAS', 'POS_AULA'], ['ativo'])
 
   return (
@@ -74,8 +106,15 @@ export function PipelineQuadro() {
       {visao === 'quadro' && !vidas.isLoading && !vidas.error && (
         <QuadroKanban colunas={COLUNAS_JORNADA} contacts={vidas.data ?? []} nomes={nomes}
           colunaDe={colunaJornada} campos={camposParaColunaJornada} onAtualizado={recarregar}
-          avisoMovimento="As aulas 2, 3 e 4 avançam quando a presença é registrada na ficha da vida." />
+          avisoMovimento="As aulas 2, 3 e 4 avançam pelo check-in do aluno ou pela presença registrada na ficha."
+          acaoColuna={id => id.startsWith('AULA_') && (
+            <button onClick={() => setCheckin(Number(id.slice(5)))}
+              className="mt-2 w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold py-1.5 rounded-md border border-menta-light/40 text-menta-light hover:bg-menta-light/10">
+              <QrCode size={13} /> Link de check-in
+            </button>
+          )} />
       )}
+      {checkin && <ModalCheckin aula={checkin} onClose={() => setCheckin(null)} />}
     </div>
   )
 }

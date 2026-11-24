@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/AuthContext'
@@ -30,11 +30,13 @@ interface Props<T extends string> {
   /** Campos a gravar para ir à coluna; null = esse movimento é feito pela ficha. */
   campos: (c: Contact, destino: T) => Partial<Contact> | null
   avisoMovimento?: string
+  /** Botão extra no topo da coluna (ex.: link de check-in das aulas). */
+  acaoColuna?: (id: T) => ReactNode
   onAtualizado: () => void
 }
 
 export function QuadroKanban<T extends string>({
-  colunas, contacts, nomes, colunaDe, campos, avisoMovimento, onAtualizado,
+  colunas, contacts, nomes, colunaDe, campos, avisoMovimento, acaoColuna, onAtualizado,
 }: Props<T>) {
   const { profile } = useAuth()
   const [busca, setBusca] = useState('')
@@ -164,6 +166,7 @@ export function QuadroKanban<T extends string>({
                     {[col.desc, col.prazoDias && `prazo ${col.prazoDias} dias`].filter(Boolean).join(' · ')}
                   </p>
                 )}
+                {acaoColuna?.(col.id)}
               </div>
               <div className="p-2 flex flex-col gap-2 overflow-y-auto">
                 {lista.length === 0 && <p className="text-[11px] text-muted-foreground text-center py-4">Nenhuma vida aqui</p>}
