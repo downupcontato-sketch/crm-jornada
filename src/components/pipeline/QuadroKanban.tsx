@@ -32,11 +32,13 @@ interface Props<T extends string> {
   avisoMovimento?: string
   /** Botão extra no topo da coluna (ex.: link de check-in das aulas). */
   acaoColuna?: (id: T) => ReactNode
+  /** Conteúdo extra abaixo do card (ex.: aulas sem registro). */
+  rodapeCard?: (c: Contact) => ReactNode
   onAtualizado: () => void
 }
 
 export function QuadroKanban<T extends string>({
-  colunas, contacts, nomes, colunaDe, campos, avisoMovimento, acaoColuna, onAtualizado,
+  colunas, contacts, nomes, colunaDe, campos, avisoMovimento, acaoColuna, rodapeCard, onAtualizado,
 }: Props<T>) {
   const { profile } = useAuth()
   const [busca, setBusca] = useState('')
@@ -175,7 +177,8 @@ export function QuadroKanban<T extends string>({
                   const p = situacaoPrazo(dias, col.prazoDias)
                   const responsavel = c.voluntario_atribuido_id ? nomes[c.voluntario_atribuido_id] : null
                   return (
-                    <button key={c.id} draggable
+                    <div key={c.id} className="flex flex-col gap-1">
+                    <button draggable
                       onDragStart={e => { setArrastando(c); e.dataTransfer.effectAllowed = 'move' }}
                       onDragEnd={() => { setArrastando(null); setSobre(null) }}
                       onClick={() => setAberto(c)}
@@ -192,6 +195,8 @@ export function QuadroKanban<T extends string>({
                         <span className={cn('font-semibold tabular-nums', COR_PRAZO[p])} title="Dias nesta etapa">{dias}d</span>
                       </div>
                     </button>
+                    {rodapeCard?.(c)}
+                    </div>
                   )
                 })}
               </div>

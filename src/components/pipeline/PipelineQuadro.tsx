@@ -8,7 +8,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
 import { buscarTodos } from '@/lib/queries/buscarTodos'
 import { COORDINATOR_CONTACT_FILTER } from '@/lib/queries/filters'
-import { COLUNAS_JORNADA, camposParaColunaJornada, colunaJornada } from '@/lib/quadro'
+import { COLUNAS_JORNADA, aulasSemRegistro, camposParaColunaJornada, colunaJornada } from '@/lib/quadro'
+import { ModalPresenca } from './ModalPresenca'
 import { QuadroKanban } from './QuadroKanban'
 import { PipelineLider } from './PipelineLider'
 import type { Contact, ContactStatus, FasePipeline } from '@/types/database'
@@ -88,6 +89,7 @@ function ModalCheckin({ aula, onClose }: { aula: number; onClose: () => void }) 
 export function PipelineQuadro() {
   const [visao, setVisao] = useState<'quadro' | 'voluntario'>('quadro')
   const [checkin, setCheckin] = useState<number | null>(null)
+  const [presenca, setPresenca] = useState<{ contact: Contact; aula: 1 | 2 | 3 | 4 } | null>(null)
   const { vidas, nomes, recarregar } = useVidasQuadro('jornada', ['CONTATO_INICIAL', 'QUALIFICACAO', 'AULAS', 'POS_AULA'], ['ativo'])
 
   return (
@@ -112,9 +114,28 @@ export function PipelineQuadro() {
               className="mt-2 w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold py-1.5 rounded-md border border-menta-light/40 text-menta-light hover:bg-menta-light/10">
               <QrCode size={13} /> Link de check-in
             </button>
-          )} />
+          )}
+          rodapeCard={c => {
+            const pendentes = aulasSemRegistro(c)
+            if (!pendentes.length) return null
+            return (
+              <div className="rounded-md border border-yellow-400/30 bg-yellow-400/10 px-2 py-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-yellow-400">
+                <span>Sem registro:</span>
+                {pendentes.map(n => (
+                  <button key={n} onClick={() => setPresenca({ contact: c, aula: n })}
+                    className="px-2 py-0.5 rounded border border-yellow-400/40 hover:bg-yellow-400/20 font-semibold">
+                    Aula {n}
+                  </button>
+                ))}
+              </div>
+            )
+          }} />
       )}
       {checkin && <ModalCheckin aula={checkin} onClose={() => setCheckin(null)} />}
+      {presenca && (
+        <ModalPresenca contact={presenca.contact} aula={presenca.aula}
+          onClose={() => setPresenca(null)} onSaved={() => recarregar()} />
+      )}
     </div>
   )
 }

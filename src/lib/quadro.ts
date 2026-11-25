@@ -65,6 +65,14 @@ export function colunaJornada(c: Contact): ColunaJornada | null {
   }
 }
 
+/** Aulas antes da última registrada que ficaram sem presença nem falta (o check-in só grava presença). */
+export function aulasSemRegistro(c: Contact): (1 | 2 | 3 | 4)[] {
+  if (c.fase_pipeline !== 'AULAS') return []
+  const p = [c.presenca_aula1, c.presenca_aula2, c.presenca_aula3, c.presenca_aula4]
+  const ultima = p.reduce((u, v, i) => (v !== null ? i : u), -1)
+  return p.slice(0, Math.max(ultima, 0)).flatMap((v, i) => (v === null ? [(i + 1) as 1 | 2 | 3 | 4] : []))
+}
+
 export function colunaBatismo(c: Contact): ColunaBatismo | null {
   if (c.fase_pipeline === 'BATIZADO') return c.batismo_finalizado_em ? 'FINALIZADO' : 'PARTICIPOU'
   switch (c.subetapa_batismo) {
