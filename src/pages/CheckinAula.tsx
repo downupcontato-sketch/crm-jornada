@@ -4,12 +4,6 @@ import { CheckCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { PhoneInputInternacional, validatePhone } from '@/components/ui/PhoneInputInternacional'
 
-const MENSAGEM: Record<string, string> = {
-  nao_encontrado:   'Não encontramos esse WhatsApp. Confira o número ou fale com o seu voluntário.',
-  fora_das_aulas:   'Esse número não está nas aulas do Jornada agora. Fale com o seu voluntário.',
-  nome_nao_confere: 'O nome não confere com o cadastro desse WhatsApp. Use o nome que você informou no cadastro.',
-  dados_invalidos:  'Confira o nome e o WhatsApp.',
-}
 
 /** Página pública do QR Code de cada aula: o aluno registra a própria presença. */
 export default function CheckinAula() {
@@ -19,7 +13,7 @@ export default function CheckinAula() {
   const [pais, setPais] = useState('BR')
   const [erro, setErro] = useState('')
   const [enviando, setEnviando] = useState(false)
-  const [feito, setFeito] = useState<{ nome: string; jaTinha: boolean } | null>(null)
+  const [feito, setFeito] = useState<{ nome: string; pendente: boolean } | null>(null)
 
   async function enviar(e: React.FormEvent) {
     e.preventDefault()
@@ -30,9 +24,10 @@ export default function CheckinAula() {
     setEnviando(false)
     const r = data?.[0]
     if (error || !r) return setErro('Não foi possível registrar agora. Tente de novo em instantes.')
-    if (r.resultado === 'ok' || r.resultado === 'ja_registrado')
-      return setFeito({ nome: r.primeiro_nome, jaTinha: r.resultado === 'ja_registrado' })
-    setErro(MENSAGEM[r.resultado] ?? MENSAGEM.dados_invalidos)
+    // Todo check-in fica gravado: o que não foi reconhecido vai para a equipe confirmar.
+    if (r.resultado === 'ok' || r.resultado === 'pendente')
+      return setFeito({ nome: r.primeiro_nome, pendente: r.resultado === 'pendente' })
+    setErro('Confira o nome e o WhatsApp.')
   }
 
   if (!(aula >= 1 && aula <= 4)) {
@@ -44,9 +39,13 @@ export default function CheckinAula() {
       <Tela>
         <div className="flex flex-col items-center text-center gap-3">
           <CheckCircle size={40} style={{ color: '#00B0A8' }} />
-          <h1 className="text-xl font-semibold text-white">Presença confirmada, {feito.nome}!</h1>
+          <h1 className="text-xl font-semibold text-white">
+            {feito.pendente ? `Check-in recebido, ${feito.nome}!` : `Presença confirmada, ${feito.nome}!`}
+          </h1>
           <p className="text-sm" style={{ color: '#7A9FA8' }}>
-            {feito.jaTinha ? `Sua presença na Aula ${aula} já estava registrada.` : `Aula ${aula} registrada. Boa aula!`}
+            {feito.pendente
+              ? `Recebemos seu check-in da Aula ${aula}. A equipe vai confirmar sua presença. Boa aula!`
+              : `Aula ${aula} registrada. Boa aula!`}
           </p>
         </div>
       </Tela>

@@ -10,6 +10,7 @@ import { buscarTodos } from '@/lib/queries/buscarTodos'
 import { COORDINATOR_CONTACT_FILTER } from '@/lib/queries/filters'
 import { COLUNAS_JORNADA, aulasSemRegistro, camposParaColunaJornada, colunaJornada } from '@/lib/quadro'
 import { ModalPresenca } from './ModalPresenca'
+import { CheckinsPendentes, useCheckinsPendentes } from './CheckinsPendentes'
 import { QuadroKanban } from './QuadroKanban'
 import { PipelineLider } from './PipelineLider'
 import type { Contact, ContactStatus, FasePipeline } from '@/types/database'
@@ -90,10 +91,13 @@ export function PipelineQuadro() {
   const [visao, setVisao] = useState<'quadro' | 'voluntario'>('quadro')
   const [checkin, setCheckin] = useState<number | null>(null)
   const [presenca, setPresenca] = useState<{ contact: Contact; aula: 1 | 2 | 3 | 4 } | null>(null)
+  const [verCheckins, setVerCheckins] = useState(false)
+  const pendentes = useCheckinsPendentes().data?.length ?? 0
   const { vidas, nomes, recarregar } = useVidasQuadro('jornada', ['CONTATO_INICIAL', 'QUALIFICACAO', 'AULAS', 'POS_AULA'], ['ativo'])
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex items-center gap-3 flex-wrap">
       <div className="flex bg-card border border-border rounded-lg p-1 self-start">
         {([['quadro', 'Quadro'], ['voluntario', 'Por voluntário']] as const).map(([v, label]) => (
           <button key={v} onClick={() => setVisao(v)} aria-pressed={visao === v}
@@ -102,6 +106,13 @@ export function PipelineQuadro() {
             {label}
           </button>
         ))}
+      </div>
+      <button onClick={() => setVerCheckins(true)}
+        className={cn('text-xs font-semibold px-3 py-2 rounded-lg border flex items-center gap-2',
+          pendentes ? 'border-yellow-400/40 text-yellow-400 bg-yellow-400/10' : 'border-border text-muted-foreground')}>
+        <QrCode size={13} /> Check-ins para confirmar
+        {pendentes > 0 && <span className="bg-yellow-400 text-petroleo rounded-full px-1.5 text-[10px] tabular-nums">{pendentes}</span>}
+      </button>
       </div>
       {visao === 'voluntario' && <PipelineLider />}
       {visao === 'quadro' && <EstadoQuadro isLoading={vidas.isLoading} error={vidas.error} />}
@@ -131,6 +142,7 @@ export function PipelineQuadro() {
             )
           }} />
       )}
+      {verCheckins && <CheckinsPendentes onClose={() => setVerCheckins(false)} onResolvido={recarregar} />}
       {checkin && <ModalCheckin aula={checkin} onClose={() => setCheckin(null)} />}
       {presenca && (
         <ModalPresenca contact={presenca.contact} aula={presenca.aula}
